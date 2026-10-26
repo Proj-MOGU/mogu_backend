@@ -1,0 +1,4 @@
+mogu:
+  auth:
+    jwt:
+      ephemeral-key-allowed: true

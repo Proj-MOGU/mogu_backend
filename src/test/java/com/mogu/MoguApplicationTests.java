@@ -11,11 +11,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationContext;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+@ActiveProfiles("test")
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers(disabledWithoutDocker = true)
@@ -25,11 +27,14 @@ class MoguApplicationTests {
     @ServiceConnection
     static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18.6");
 
-    @Autowired
-    private ApplicationContext context;
+    private final ApplicationContext context;
+    private final MockMvc mockMvc;
 
     @Autowired
-    private MockMvc mockMvc;
+    MoguApplicationTests(ApplicationContext context, MockMvc mockMvc) {
+        this.context = context;
+        this.mockMvc = mockMvc;
+    }
 
     @Test
     @DisplayName("애플리케이션 컨텍스트가 정상적으로 로드된다")

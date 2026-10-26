@@ -7,7 +7,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.mogu.common.config.SecurityConfig;
+import com.mogu.auth.infrastructure.JsonAuthenticationEntryPoint;
+import com.mogu.auth.infrastructure.JwtKeyConfig;
+import com.mogu.auth.infrastructure.MemberAuthenticationConverter;
+import com.mogu.auth.infrastructure.SecurityConfig;
 import com.mogu.common.trace.TraceIdFilter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -23,6 +26,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,9 +35,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@ActiveProfiles("test")
 @WebMvcTest(GlobalExceptionHandlerTest.DummyController.class)
 @Import({
     SecurityConfig.class,
+    JwtKeyConfig.class,
+    MemberAuthenticationConverter.class,
+    JsonAuthenticationEntryPoint.class,
     TraceIdFilter.class,
     GlobalExceptionHandler.class,
     GlobalExceptionHandlerTest.DummyController.class
