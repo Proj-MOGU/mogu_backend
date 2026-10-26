@@ -7,7 +7,7 @@
 요구사항: Java 21, Docker
 
 ```bash
-docker compose up -d                              # PostgreSQL 17 (mogu/mogu)
+docker compose up -d                              # PostgreSQL 18.6 (mogu/mogu)
 SPRING_PROFILES_ACTIVE=local ./gradlew bootRun    # http://localhost:8080/actuator/health
 ```
 
