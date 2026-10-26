@@ -1,4 +1,5 @@
 # MOGU Backend
+![CI](https://github.com/Proj-MOGU/mogu_backend/actions/workflows/ci.yml/badge.svg)
 
 1인 가구의 근거리 공동구매·배달·구독 비용 분담 서비스 MOGU의 백엔드 저장소.
 
