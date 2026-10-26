@@ -1,0 +1,5 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/mogu}
+    username: ${DB_USERNAME:mogu}
+    password: ${DB_PASSWORD:mogu}
