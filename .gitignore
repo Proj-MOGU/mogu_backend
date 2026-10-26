@@ -1,0 +1,23 @@
+# 에이전트 작업 문서 (원격 저장소에 올리지 않음)
+docs/
+.office/
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+out/
+
+# OS
+.DS_Store
+
+# 시크릿
+.env
+.env.*
+*.pem
+*.key
