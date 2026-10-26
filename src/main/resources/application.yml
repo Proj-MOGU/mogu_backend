@@ -26,3 +26,16 @@ server:
 logging:
   pattern:
     level: "%5p [%X{traceId:-}]"
+
+mogu:
+  auth:
+    jwt:
+      issuer: mogu
+      audience: mogu-api
+      access-token-ttl: 15m
+      clock-skew: 60s
+      ephemeral-key-allowed: false
+      signing-key:
+        key-id: ${JWT_SIGNING_KEY_ID:}
+        private-key-pem: ${JWT_SIGNING_PRIVATE_KEY:}
+        public-key-pem: ${JWT_SIGNING_PUBLIC_KEY:}

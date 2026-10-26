@@ -1,4 +1,4 @@
-package com.mogu.common.config;
+package com.mogu.auth.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -12,16 +12,28 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@ActiveProfiles("test")
 @WebMvcTest(SecurityConfigTest.DummyController.class)
-@Import({SecurityConfig.class, SecurityConfigTest.DummyController.class})
+@Import({
+    SecurityConfig.class,
+    JwtKeyConfig.class,
+    MemberAuthenticationConverter.class,
+    JsonAuthenticationEntryPoint.class,
+    SecurityConfigTest.DummyController.class
+})
 class SecurityConfigTest {
 
+    private final MockMvc mockMvc;
+
     @Autowired
-    private MockMvc mockMvc;
+    SecurityConfigTest(MockMvc mockMvc) {
+        this.mockMvc = mockMvc;
+    }
 
     @Test
     @DisplayName("미인증 요청은 세션을 생성하지 않고 401을 반환한다")
