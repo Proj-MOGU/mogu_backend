@@ -2,3 +2,6 @@ mogu:
   auth:
     jwt:
       ephemeral-key-allowed: true
+    nonce:
+      ephemeral-secret-allowed: true
+      cleanup-interval: P365D
