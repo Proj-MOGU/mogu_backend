@@ -28,7 +28,8 @@ public final class FakeOidcProvider implements AutoCloseable {
     private final AtomicInteger requests = new AtomicInteger();
     private volatile RSAKey signingKey;
     private volatile int status = 200;
-    private final CountDownLatch release = new CountDownLatch(1);
+    private volatile CountDownLatch entered = new CountDownLatch(1);
+    private volatile CountDownLatch release = new CountDownLatch(1);
     private volatile boolean delayed;
 
     public FakeOidcProvider() {
@@ -40,6 +41,7 @@ public final class FakeOidcProvider implements AutoCloseable {
                 requests.incrementAndGet();
                 try (exchange) {
                     if (delayed) {
+                        entered.countDown();
                         try {
                             release.await(5, TimeUnit.SECONDS);
                         } catch (InterruptedException interrupted) {
@@ -81,7 +83,18 @@ public final class FakeOidcProvider implements AutoCloseable {
     }
 
     public void delay() {
+        entered = new CountDownLatch(1);
+        release = new CountDownLatch(1);
         delayed = true;
+    }
+
+    public boolean awaitDelayedRequest() throws InterruptedException {
+        return entered.await(10, TimeUnit.SECONDS);
+    }
+
+    public void resume() {
+        delayed = false;
+        release.countDown();
     }
 
     public String sign(JWTClaimsSet claims) throws Exception {

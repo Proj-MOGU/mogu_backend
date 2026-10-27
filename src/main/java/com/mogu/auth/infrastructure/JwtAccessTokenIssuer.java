@@ -23,10 +23,10 @@ public class JwtAccessTokenIssuer implements AccessTokenIssuer {
     private final String keyId;
 
     JwtAccessTokenIssuer(
-            JwtEncoder encoder,
+            @Qualifier("jwtEncoder") JwtEncoder encoder,
             JwtProperties properties,
             @Qualifier("authClock") Clock clock,
-            JwtSigningKey signingKey) {
+            @Qualifier("signingKey") JwtSigningKey signingKey) {
         this.encoder = encoder;
         this.properties = properties;
         this.clock = clock;

@@ -28,6 +28,8 @@ import org.springframework.test.web.servlet.MockMvc;
     NonceKeyConfig.class,
     JwtKeyConfig.class,
     SecurityConfig.class,
+    com.mogu.auth.infrastructure.RegistrationKeyConfig.class,
+    com.mogu.auth.infrastructure.PendingRegistrationAuthenticationConverter.class,
     MemberAuthenticationConverter.class,
     JsonAuthenticationEntryPoint.class
 })

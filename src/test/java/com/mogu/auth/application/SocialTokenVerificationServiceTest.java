@@ -66,6 +66,7 @@ class SocialTokenVerificationServiceTest {
     private final UsedNonceRepository repository;
     private final JdbcClient jdbc;
     private final Clock clock;
+    private final org.springframework.transaction.support.TransactionTemplate transactions;
 
     @Autowired
     SocialTokenVerificationServiceTest(
@@ -73,12 +74,14 @@ class SocialTokenVerificationServiceTest {
             NonceService nonces,
             UsedNonceRepository repository,
             JdbcClient jdbc,
-            @Qualifier("authClock") Clock clock) {
+            @Qualifier("authClock") Clock clock,
+            org.springframework.transaction.PlatformTransactionManager transactionManager) {
         this.service = service;
         this.nonces = nonces;
         this.repository = repository;
         this.jdbc = jdbc;
         this.clock = clock;
+        this.transactions = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
     }
 
     @BeforeEach
@@ -99,8 +102,26 @@ class SocialTokenVerificationServiceTest {
                 .build();
     }
 
+    private VerifiedSocialIdentity verifyAndConsume(String token) {
+        var identity = service.verifyToken(AuthProvider.KAKAO, token);
+        transactions.executeWithoutResult(status -> service.consumeNonce(identity));
+        return identity;
+    }
+
+    @Test
+    @DisplayName("nonce 소모에는 기존 트랜잭션이 반드시 필요하다")
+    void consumingRequiresTransaction() throws Exception {
+        // given
+        var identity = service.verifyToken(
+                AuthProvider.KAKAO, fake.sign(claims(nonces.issue().value(), "mandatory")));
+        // when / then
+        assertThatThrownBy(() -> service.consumeNonce(identity))
+                .isInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class);
+        assertThat(count()).isZero();
+    }
+
     private void rejected(String token) {
-        assertThatThrownBy(() -> service.verify(AuthProvider.KAKAO, token))
+        assertThatThrownBy(() -> verifyAndConsume(token))
                 .isInstanceOfSatisfying(
                         BusinessException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(AuthErrorCode.INVALID_SOCIAL_TOKEN));
@@ -119,7 +140,7 @@ class SocialTokenVerificationServiceTest {
         var nonce = nonces.issue();
         var token = fake.sign(claims(nonce.value(), "one"));
         // when
-        var identity = service.verify(AuthProvider.KAKAO, token);
+        var identity = verifyAndConsume(token);
         // then
         assertThat(identity.subject()).isEqualTo("kakao-subject");
         String expected = HexFormat.of()
@@ -145,7 +166,7 @@ class SocialTokenVerificationServiceTest {
     void rejectsReplay() throws Exception {
         // given
         var token = fake.sign(claims(nonces.issue().value(), "one"));
-        service.verify(AuthProvider.KAKAO, token);
+        verifyAndConsume(token);
         // when / then
         rejected(token);
         assertThat(count()).isEqualTo(1);
@@ -161,8 +182,7 @@ class SocialTokenVerificationServiceTest {
         // when / then
         rejected(forged);
         assertThat(count()).isZero();
-        assertThat(service.verify(AuthProvider.KAKAO, fake.sign(claims)).subject())
-                .isEqualTo("kakao-subject");
+        assertThat(verifyAndConsume(fake.sign(claims)).subject()).isEqualTo("kakao-subject");
         assertThat(count()).isEqualTo(1);
     }
 
@@ -194,7 +214,7 @@ class SocialTokenVerificationServiceTest {
                     ready.countDown();
                     if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Start timeout");
                     try {
-                        service.verify(AuthProvider.KAKAO, token);
+                        verifyAndConsume(token);
                         return true;
                     } catch (BusinessException e) {
                         assertThat(e.errorCode()).isEqualTo(AuthErrorCode.INVALID_SOCIAL_TOKEN);

@@ -40,7 +40,7 @@ class SocialTokenVerificationServiceUnitTest {
         var service = new SocialTokenVerificationService(
                 List.of(), mock(NonceCodec.class), mock(UsedNonceRepository.class), Clock.systemUTC());
         // when / then
-        assertThatThrownBy(() -> service.verify(AuthProvider.KAKAO, "unused"))
+        assertThatThrownBy(() -> service.verifyToken(AuthProvider.KAKAO, "unused"))
                 .isInstanceOfSatisfying(
                         BusinessException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(AuthErrorCode.UNSUPPORTED_PROVIDER));
