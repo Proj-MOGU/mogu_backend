@@ -24,5 +24,10 @@ public record JwtProperties(
         }
     }
 
-    public record VerificationKey(String keyId, String publicKeyPem) {}
+    public record VerificationKey(String keyId, String publicKeyPem) {
+        @Override
+        public String toString() {
+            return "VerificationKey[keyId=" + keyId + ", publicKeyPem=***]";
+        }
+    }
 }

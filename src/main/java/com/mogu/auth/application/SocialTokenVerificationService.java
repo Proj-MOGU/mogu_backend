@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -38,15 +39,23 @@ public class SocialTokenVerificationService {
         this.clock = clock;
     }
 
-    @Transactional
-    public VerifiedSocialIdentity verify(AuthProvider provider, String idToken) {
+    public VerifiedSocialIdentity verifyToken(AuthProvider provider, String idToken) {
         var adapter = provider == null ? null : adapters.get(provider);
         if (adapter == null) throw new BusinessException(AuthErrorCode.UNSUPPORTED_PROVIDER);
         var identity = adapter.verify(idToken);
         var expiry = codec.verifyAndGetExpiry(identity.nonce());
+        if (expiry.isBefore(clock.instant())
+                || identity.subject() == null
+                || identity.subject().isBlank()
+                || identity.subject().length() > 255) throw new BusinessException(AuthErrorCode.INVALID_SOCIAL_TOKEN);
+        return identity;
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void consumeNonce(VerifiedSocialIdentity identity) {
+        var expiry = codec.verifyAndGetExpiry(identity.nonce());
         if (expiry.isBefore(clock.instant()) || !repository.markUsed(sha256Hex(identity.nonce()), expiry))
             throw new BusinessException(AuthErrorCode.INVALID_SOCIAL_TOKEN);
-        return identity;
     }
 
     private static String sha256Hex(String value) {

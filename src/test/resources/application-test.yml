@@ -1,5 +1,7 @@
 mogu:
   auth:
+    registration-jwt:
+      ephemeral-key-allowed: true
     jwt:
       ephemeral-key-allowed: true
     nonce:

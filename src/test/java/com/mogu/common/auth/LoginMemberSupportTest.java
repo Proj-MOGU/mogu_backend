@@ -23,6 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
 @ActiveProfiles("test")
 @Import({
     SecurityConfig.class,
+    com.mogu.auth.infrastructure.RegistrationKeyConfig.class,
+    com.mogu.auth.infrastructure.PendingRegistrationAuthenticationConverter.class,
     JwtKeyConfig.class,
     MemberAuthenticationConverter.class,
     JsonAuthenticationEntryPoint.class,

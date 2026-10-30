@@ -39,6 +39,8 @@ import org.springframework.web.bind.annotation.RestController;
 @WebMvcTest(GlobalExceptionHandlerTest.DummyController.class)
 @Import({
     SecurityConfig.class,
+    com.mogu.auth.infrastructure.RegistrationKeyConfig.class,
+    com.mogu.auth.infrastructure.PendingRegistrationAuthenticationConverter.class,
     JwtKeyConfig.class,
     MemberAuthenticationConverter.class,
     JsonAuthenticationEntryPoint.class,

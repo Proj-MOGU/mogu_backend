@@ -45,6 +45,8 @@ import org.springframework.web.bind.annotation.RestController;
 @Import({
     AccessTokenMvcTest.DummyController.class,
     SecurityConfig.class,
+    com.mogu.auth.infrastructure.RegistrationKeyConfig.class,
+    com.mogu.auth.infrastructure.PendingRegistrationAuthenticationConverter.class,
     JwtKeyConfig.class,
     JwtAccessTokenIssuer.class,
     MemberAuthenticationConverter.class,
