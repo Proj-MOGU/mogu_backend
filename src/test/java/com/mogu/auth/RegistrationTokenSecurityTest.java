@@ -84,11 +84,22 @@ class RegistrationTokenSecurityTest extends LoginIntegrationSupport {
         String subject = "pending-" + UUID.randomUUID();
         var token = successfulLogin(subject).get("registrationToken").asText();
         // when / then
-        mvc.perform(post("/api/auth/identity-verification").header("Authorization", "Bearer " + token))
+        var response = mvc.perform(post("/api/auth/mock-identity-verifications")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(json.writeValueAsString(
+                                new com.mogu.auth.api.MockIdentityVerificationRequest("01012345678", null))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.provider").value("KAKAO"))
-                .andExpect(jsonPath("$.providerSubject").value(subject))
-                .andExpect(jsonPath("$.registrationId").isNotEmpty());
+                .andReturn()
+                .getResponse();
+        var verificationId = json.readTree(response.getContentAsString())
+                .get("verificationId")
+                .asText();
+        assertThat(jdbc.sql("SELECT registration_id FROM auth_mock_identity_verification WHERE verification_id = :id")
+                        .param("id", verificationId)
+                        .query(UUID.class)
+                        .single())
+                .isNotNull();
     }
 
     @Test
@@ -106,8 +117,8 @@ class RegistrationTokenSecurityTest extends LoginIntegrationSupport {
                 post("/api/auth/identity-verification").header("Authorization", "Bearer " + token.value())));
         assertThat(normal).isEqualTo(pending);
         // 가입 대기 체인에서 인증되더라도 LoginMember 리졸버는 회원 ID를 반환하지 않는다.
-        unauthorized(mvc.perform(
-                post("/api/auth/mock-identity-verifications").header("Authorization", "Bearer " + registration)));
+        mvc.perform(post("/api/auth/mock-identity-verifications").header("Authorization", "Bearer " + registration))
+                .andExpect(status().isBadRequest());
     }
 
     @org.junit.jupiter.params.ParameterizedTest(name = "{0}")

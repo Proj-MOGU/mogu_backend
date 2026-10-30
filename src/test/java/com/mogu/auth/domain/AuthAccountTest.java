@@ -15,7 +15,13 @@ class AuthAccountTest {
     private final Instant now = Instant.parse("2026-10-27T00:00:00Z");
 
     private AuthAccount account(AccountStatus status, Instant until) {
-        return AuthAccount.reconstitute(new MemberId(UUID.randomUUID()), status, until, now, List.of());
+        return AuthAccount.reconstitute(
+                new MemberId(UUID.randomUUID()),
+                new com.mogu.auth.domain.DiHash("a".repeat(64)),
+                status,
+                until,
+                now,
+                List.of());
     }
 
     @Test
@@ -38,8 +44,13 @@ class AuthAccountTest {
         var linked = new LinkedSocialIdentity(new SocialIdentity(AuthProvider.KAKAO, "subject"), now);
         var identities = new ArrayList<>(List.of(linked));
         // when
-        var account =
-                AuthAccount.reconstitute(new MemberId(UUID.randomUUID()), AccountStatus.ACTIVE, null, now, identities);
+        var account = AuthAccount.reconstitute(
+                new MemberId(UUID.randomUUID()),
+                new com.mogu.auth.domain.DiHash("a".repeat(64)),
+                AccountStatus.ACTIVE,
+                null,
+                now,
+                identities);
         identities.clear();
         // then
         assertThat(account.socialIdentities()).containsExactly(linked);
@@ -56,5 +67,51 @@ class AuthAccountTest {
                     .isInstanceOf(IllegalArgumentException.class);
         assertThat(new SocialIdentity(AuthProvider.GOOGLE, "a".repeat(255)).subject())
                 .hasSize(255);
+    }
+
+    @Test
+    @DisplayName("가입과 연결은 기존 상태를 보존하고 중복 공급자를 거부한다")
+    void registersAndLinks() {
+        // given
+        var id = new MemberId(UUID.randomUUID());
+        var hash = new DiHash("b".repeat(64));
+        var kakao = new SocialIdentity(AuthProvider.KAKAO, "first");
+        // when
+        var account = AuthAccount.register(id, hash, kakao, now);
+        var linked = account.link(new SocialIdentity(AuthProvider.GOOGLE, "second"), now.plusSeconds(1));
+        // then
+        assertThat(account.memberId()).isEqualTo(id);
+        assertThat(account.diHash()).isEqualTo(hash);
+        assertThat(account.status()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(account.createdAt()).isEqualTo(now);
+        assertThat(account.socialIdentities()).containsExactly(new LinkedSocialIdentity(kakao, now));
+        assertThat(account.link(kakao, now.plusSeconds(1))).isSameAs(account);
+        assertThat(linked.socialIdentities()).hasSize(2);
+        assertThat(linked.memberId()).isEqualTo(id);
+        assertThat(linked.diHash()).isEqualTo(hash);
+        assertThatThrownBy(() -> account.link(new SocialIdentity(AuthProvider.KAKAO, "other"), now))
+                .isInstanceOfSatisfying(
+                        com.mogu.common.error.BusinessException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(AuthErrorCode.PROVIDER_ALREADY_LINKED));
+    }
+
+    @Test
+    @DisplayName("제재와 해제는 새 객체로 상태와 기한을 변경한다")
+    void sanctionsAndLifts() {
+        // given
+        var original = account(AccountStatus.ACTIVE, null);
+        // when
+        var sanctioned = original.sanction(now.plusSeconds(1));
+        var lifted = sanctioned.lift();
+        // then
+        assertThat(original.status()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(sanctioned.status()).isEqualTo(AccountStatus.SANCTIONED);
+        assertThat(sanctioned.sanctionedUntil()).isEqualTo(now.plusSeconds(1));
+        assertThat(sanctioned.isSanctionedAt(now)).isTrue();
+        assertThat(original.sanction(null).isSanctionedAt(now)).isTrue();
+        assertThat(lifted.status()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(lifted.sanctionedUntil()).isNull();
+        assertThat(lifted.diHash()).isEqualTo(original.diHash());
+        assertThat(lifted.memberId()).isEqualTo(original.memberId());
     }
 }

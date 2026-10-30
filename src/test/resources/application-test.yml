@@ -1,5 +1,9 @@
 mogu:
   auth:
+    di:
+      ephemeral-pepper-allowed: true
+    mock-identity:
+      secret: ${AUTH_MOCK_IDENTITY_SECRET:}
     registration-jwt:
       ephemeral-key-allowed: true
     jwt:
