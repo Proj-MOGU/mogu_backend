@@ -10,6 +10,7 @@ import com.mogu.common.error.CommonErrorCode;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -59,13 +60,13 @@ public class MockIdentityVerificationAdapter implements IdentityVerificationAdap
         byte[] bytes = new byte[24];
         random.nextBytes(bytes);
         String id = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        jdbc.sql(
-                        "INSERT INTO auth_mock_identity_verification(verification_id, registration_id, mock_di, outcome, verified_at) VALUES (:id, :registration, :di, :outcome, :now)")
+        jdbc.sql("INSERT INTO auth_mock_identity_verification(verification_id, registration_id, mock_di,"
+                        + " outcome, verified_at) VALUES (:id, :registration, :di, :outcome, :now)")
                 .param("id", id)
                 .param("registration", registrationId)
                 .param("di", mockHasher.hash(phoneNumber).value())
                 .param("outcome", outcome == null ? "VERIFIED" : outcome)
-                .param("now", clock.instant().atOffset(ZoneOffset.UTC))
+                .param("now", clock.instant().truncatedTo(ChronoUnit.MICROS).atOffset(ZoneOffset.UTC))
                 .update();
         return id;
     }
@@ -73,8 +74,8 @@ public class MockIdentityVerificationAdapter implements IdentityVerificationAdap
     @Override
     public VerifiedIdentity fetch(String verificationId) {
         if (verificationId == null || !verificationId.matches("[A-Za-z0-9_-]{32}")) throw invalid();
-        return jdbc.sql(
-                        "SELECT * FROM auth_mock_identity_verification WHERE verification_id = :id AND outcome = 'VERIFIED'")
+        return jdbc.sql("SELECT * FROM auth_mock_identity_verification WHERE verification_id = :id AND outcome ="
+                        + " 'VERIFIED'")
                 .param("id", verificationId)
                 .query((rs, n) -> {
                     String di = rs.getString("mock_di");
