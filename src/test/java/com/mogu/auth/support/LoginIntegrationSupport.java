@@ -3,8 +3,6 @@ package com.mogu.auth.support;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.mogu.auth.api.PendingRegistration;
-import com.mogu.auth.api.PendingSocialIdentity;
 import com.mogu.auth.application.NonceService;
 import com.mogu.auth.domain.AccountStatus;
 import com.mogu.auth.domain.AuthAccount;
@@ -30,7 +28,6 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -51,15 +48,18 @@ public abstract class LoginIntegrationSupport {
     static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18.6");
 
     protected static FakeOidcProvider fake;
+    protected static FakeOidcProvider google;
 
     @org.junit.jupiter.api.BeforeAll
     static void startProvider() {
         fake = new FakeOidcProvider();
+        google = new FakeOidcProvider();
     }
 
     @org.junit.jupiter.api.AfterAll
     static void stopProvider() {
         if (fake != null) fake.close();
+        if (google != null) google.close();
     }
 
     @DynamicPropertySource
@@ -69,6 +69,9 @@ public abstract class LoginIntegrationSupport {
         registry.add("mogu.auth.social.kakao.issuers", () -> "https://kauth.kakao.com");
         registry.add("mogu.auth.social.kakao.audiences", () -> "test-client");
         registry.add("mogu.auth.social.kakao.read-timeout", () -> "10s");
+        registry.add(
+                "mogu.auth.social.google.jwk-set-uri", () -> google.jwkSetUri().toString());
+        registry.add("mogu.auth.social.google.audiences", () -> "test-client");
     }
 
     protected final MockMvc mvc;
@@ -86,15 +89,20 @@ public abstract class LoginIntegrationSupport {
     }
 
     protected String token(String subject) throws Exception {
+        return token("kakao", subject);
+    }
+
+    protected String token(String provider, String subject) throws Exception {
         var now = clock.instant();
-        return fake.sign(new JWTClaimsSet.Builder()
-                .issuer("https://kauth.kakao.com")
-                .audience("test-client")
-                .subject(subject)
-                .claim("nonce", nonces.issue().value())
-                .issueTime(Date.from(now))
-                .expirationTime(Date.from(now.plusSeconds(300)))
-                .build());
+        return (provider.equals("kakao") ? fake : google)
+                .sign(new JWTClaimsSet.Builder()
+                        .issuer(provider.equals("kakao") ? "https://kauth.kakao.com" : "https://accounts.google.com")
+                        .audience("test-client")
+                        .subject(subject)
+                        .claim("nonce", nonces.issue().value())
+                        .issueTime(Date.from(now))
+                        .expirationTime(Date.from(now.plusSeconds(300)))
+                        .build());
     }
 
     protected ResultActions login(String provider, String token) throws Exception {
@@ -117,6 +125,8 @@ public abstract class LoginIntegrationSupport {
                 jdbc,
                 AuthAccount.reconstitute(
                         id,
+                        new com.mogu.auth.domain.DiHash(
+                                id.value().toString().replace("-", "").repeat(2)),
                         status,
                         until,
                         clock.instant(),
@@ -129,16 +139,6 @@ public abstract class LoginIntegrationSupport {
     public static class DummyController {
         @GetMapping("/test/login-member")
         public String member(@LoginMember MemberId id) {
-            return id.toString();
-        }
-
-        @PostMapping("/api/auth/identity-verification")
-        public PendingSocialIdentity pending(@PendingRegistration PendingSocialIdentity identity) {
-            return identity;
-        }
-
-        @PostMapping("/api/auth/mock-identity-verifications")
-        public String wrongPrincipal(@LoginMember MemberId id) {
             return id.toString();
         }
     }

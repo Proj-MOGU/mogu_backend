@@ -11,9 +11,10 @@ public final class AuthAccountFixtures {
     private AuthAccountFixtures() {}
 
     public static void insert(JdbcClient jdbc, AuthAccount account) {
-        jdbc.sql("INSERT INTO auth_account(member_id,status,sanctioned_until,created_at) VALUES"
-                        + " (:id,:status,:until,:created)")
+        jdbc.sql("INSERT INTO auth_account(member_id,status,sanctioned_until,created_at,di_hash) VALUES"
+                        + " (:id,:status,:until,:created,:di)")
                 .param("id", account.memberId().value())
+                .param("di", account.diHash().value())
                 .param("status", account.status().name())
                 .param(
                         "until",

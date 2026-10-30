@@ -29,6 +29,11 @@ logging:
 
 mogu:
   auth:
+    di:
+      pepper: ${AUTH_DI_PEPPER:}
+      ephemeral-pepper-allowed: false
+    identity:
+      max-age: 10m
     jwt:
       issuer: mogu
       audience: mogu-api
