@@ -20,6 +20,13 @@ public class AuthAccountJpaEntity {
     @Column(name = "member_id", nullable = false)
     private UUID memberId;
 
+    @Column(name = "di_hash", nullable = false, unique = true, length = 64)
+    private String diHash;
+
+    public String getDiHash() {
+        return diHash;
+    }
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private AccountStatus status;
@@ -40,18 +47,21 @@ public class AuthAccountJpaEntity {
 
     AuthAccountJpaEntity(
             UUID memberId,
+            String diHash,
             AccountStatus status,
             Instant sanctionedUntil,
             Instant createdAt,
             List<AuthSocialIdentityJpaEntity> identities) {
-        this(memberId, status, sanctionedUntil, createdAt);
+        this(memberId, diHash, status, sanctionedUntil, createdAt);
         this.socialIdentities = List.copyOf(identities);
     }
 
     protected AuthAccountJpaEntity() {}
 
-    AuthAccountJpaEntity(UUID memberId, AccountStatus status, Instant sanctionedUntil, Instant createdAt) {
+    AuthAccountJpaEntity(
+            UUID memberId, String diHash, AccountStatus status, Instant sanctionedUntil, Instant createdAt) {
         this.memberId = memberId;
+        this.diHash = diHash;
         this.status = status;
         this.sanctionedUntil = sanctionedUntil;
         this.createdAt = createdAt;

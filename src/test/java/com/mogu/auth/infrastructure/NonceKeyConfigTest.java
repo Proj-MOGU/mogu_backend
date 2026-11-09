@@ -30,12 +30,19 @@ class NonceKeyConfigTest {
     @Test
     @DisplayName("운영에서 임시 키 허용 설정은 키 유무와 무관하게 거부한다")
     void productionRejectsEphemeral() {
-        // given / when / then
-        runner.withPropertyValues(
-                        "spring.profiles.active=local,prod",
-                        "mogu.auth.nonce.ephemeral-secret-allowed=true",
-                        secret(32))
-                .run(context -> assertThat(context).hasFailed());
+        // given
+        var configured = runner.withPropertyValues("mogu.auth.nonce.ephemeral-secret-allowed=true", secret(32));
+        // when / then
+        configured
+                .withInitializer(context -> context.getEnvironment().setActiveProfiles("local", "prod"))
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasRootCauseMessage("mogu.auth.nonce.secret, mogu.auth.nonce.ephemeral-secret-allowed");
+                });
+        configured
+                .withInitializer(context -> context.getEnvironment().setActiveProfiles("test"))
+                .run(context -> assertThat(context).hasNotFailed().hasSingleBean(NonceCodec.class));
     }
 
     @Test
@@ -62,7 +69,8 @@ class NonceKeyConfigTest {
     @DisplayName("로컬에서 임시 키를 허용한다")
     void localAllowsEphemeral() {
         // given / when / then
-        runner.withPropertyValues("spring.profiles.active=local", "mogu.auth.nonce.ephemeral-secret-allowed=true")
+        runner.withInitializer(context -> context.getEnvironment().setActiveProfiles("local"))
+                .withPropertyValues("mogu.auth.nonce.ephemeral-secret-allowed=true")
                 .run(context -> assertThat(context).hasNotFailed());
     }
 
@@ -70,7 +78,8 @@ class NonceKeyConfigTest {
     @DisplayName("로컬과 테스트 외 프로파일에서 임시 키를 거부한다")
     void otherProfileRejectsEphemeral() {
         // given / when / then
-        runner.withPropertyValues("spring.profiles.active=staging", "mogu.auth.nonce.ephemeral-secret-allowed=true")
+        runner.withInitializer(context -> context.getEnvironment().setActiveProfiles("staging"))
+                .withPropertyValues("mogu.auth.nonce.ephemeral-secret-allowed=true")
                 .run(context -> assertThat(context).hasFailed());
     }
 
@@ -86,10 +95,18 @@ class NonceKeyConfigTest {
     @Test
     @DisplayName("운영에서 카카오 허용 대상이 없으면 기동 실패한다")
     void productionRequiresAudiences() {
-        // given / when / then
-        socialRunner()
-                .withPropertyValues("spring.profiles.active=prod")
-                .run(context -> assertThat(context).hasFailed());
+        // given
+        var configured = socialRunner();
+        // when / then
+        configured
+                .withInitializer(context -> context.getEnvironment().setActiveProfiles("prod"))
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure()).hasRootCauseMessage("KAKAO audiences required");
+                });
+        configured
+                .withInitializer(context -> context.getEnvironment().setActiveProfiles("test"))
+                .run(context -> assertThat(context).hasNotFailed().hasSingleBean(KakaoLoginAdapter.class));
     }
 
     @Test

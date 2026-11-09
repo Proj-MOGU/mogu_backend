@@ -36,16 +36,26 @@ class JwtKeyConfigTest {
     @Test
     @DisplayName("운영 프로파일에서는 임시 키 허용 설정을 거부한다")
     void productionRejectsEphemeralKeys() {
-        // given / when / then
-        runner.withPropertyValues("spring.profiles.active=local,prod", "mogu.auth.jwt.ephemeral-key-allowed=true")
-                .run(context -> assertThat(context).hasFailed());
+        // given
+        var configured = runner.withPropertyValues("mogu.auth.jwt.ephemeral-key-allowed=true");
+        // when / then
+        configured
+                .withInitializer(context -> context.getEnvironment().setActiveProfiles("local", "prod"))
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure()).hasRootCauseMessage("mogu.auth.jwt.ephemeral-key-allowed");
+                });
+        configured
+                .withInitializer(context -> context.getEnvironment().setActiveProfiles("test"))
+                .run(context -> assertThat(context).hasNotFailed().hasSingleBean(JwtEncoder.class));
     }
 
     @Test
     @DisplayName("로컬 프로파일에서 임시 키를 허용하면 인코더와 디코더를 등록한다")
     void localAllowsEphemeralKeys() {
         // given / when / then
-        runner.withPropertyValues("spring.profiles.active=local", "mogu.auth.jwt.ephemeral-key-allowed=true")
+        runner.withInitializer(context -> context.getEnvironment().setActiveProfiles("local"))
+                .withPropertyValues("mogu.auth.jwt.ephemeral-key-allowed=true")
                 .run(context -> assertThat(context)
                         .hasNotFailed()
                         .hasSingleBean(JwtEncoder.class)

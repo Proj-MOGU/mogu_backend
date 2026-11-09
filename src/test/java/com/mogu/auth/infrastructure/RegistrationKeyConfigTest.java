@@ -41,27 +41,37 @@ class RegistrationKeyConfigTest {
         // given
         var access = ecKeyPair("secp256r1");
         // when / then
-        runner.withPropertyValues(
-                        "mogu.auth.jwt.ephemeral-key-allowed=false",
-                        "mogu.auth.jwt.signing-key.key-id=access",
-                        "mogu.auth.jwt.signing-key.private-key-pem="
-                                + JwtAccessTokenTest.pem(
-                                        "PRIVATE KEY", access.getPrivate().getEncoded()),
-                        "mogu.auth.jwt.signing-key.public-key-pem="
-                                + JwtAccessTokenTest.pem(
-                                        "PUBLIC KEY", access.getPublic().getEncoded()),
-                        "spring.profiles.active=local,prod",
-                        "mogu.auth.registration-jwt.ephemeral-key-allowed=true")
-                .run(context -> assertThat(context.getStartupFailure())
-                        .hasRootCauseMessage("mogu.auth.registration-jwt.ephemeral-key-allowed"));
+        var configured = runner.withPropertyValues(
+                "mogu.auth.jwt.ephemeral-key-allowed=false",
+                "mogu.auth.jwt.signing-key.key-id=access",
+                "mogu.auth.jwt.signing-key.private-key-pem="
+                        + JwtAccessTokenTest.pem(
+                                "PRIVATE KEY", access.getPrivate().getEncoded()),
+                "mogu.auth.jwt.signing-key.public-key-pem="
+                        + JwtAccessTokenTest.pem(
+                                "PUBLIC KEY", access.getPublic().getEncoded()),
+                "mogu.auth.registration-jwt.ephemeral-key-allowed=true");
+        configured
+                .withInitializer(context -> context.getEnvironment().setActiveProfiles("local", "prod"))
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasRootCauseMessage("mogu.auth.registration-jwt.ephemeral-key-allowed");
+                });
+        configured
+                .withInitializer(context -> context.getEnvironment().setActiveProfiles("test"))
+                .run(context -> assertThat(context)
+                        .hasNotFailed()
+                        .hasBean("registrationJwtEncoder")
+                        .hasBean("registrationJwtDecoder"));
     }
 
     @Test
     @DisplayName("로컬 프로파일에서 임시 키를 허용하면 인코더와 디코더를 등록한다")
     void localAllowsEphemeralKeys() {
         // given / when / then
-        runner.withPropertyValues(
-                        "spring.profiles.active=local", "mogu.auth.registration-jwt.ephemeral-key-allowed=true")
+        runner.withInitializer(context -> context.getEnvironment().setActiveProfiles("local"))
+                .withPropertyValues("mogu.auth.registration-jwt.ephemeral-key-allowed=true")
                 .run(context -> assertThat(context)
                         .hasNotFailed()
                         .hasBean("registrationJwtEncoder")

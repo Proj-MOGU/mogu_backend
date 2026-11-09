@@ -1,6 +1,7 @@
 package com.mogu.auth.infrastructure;
 
 import com.mogu.auth.domain.AuthAccount;
+import com.mogu.auth.domain.DiHash;
 import com.mogu.auth.domain.LinkedSocialIdentity;
 import com.mogu.auth.domain.SocialIdentity;
 import com.mogu.common.auth.MemberId;
@@ -11,6 +12,7 @@ public class AuthAccountMapper {
     public AuthAccount toDomain(AuthAccountJpaEntity entity) {
         return AuthAccount.reconstitute(
                 new MemberId(entity.getMemberId()),
+                new DiHash(entity.getDiHash()),
                 entity.getStatus(),
                 entity.getSanctionedUntil(),
                 entity.getCreatedAt(),
@@ -23,6 +25,7 @@ public class AuthAccountMapper {
     public AuthAccountJpaEntity toJpaEntity(AuthAccount account) {
         return new AuthAccountJpaEntity(
                 account.memberId().value(),
+                account.diHash().value(),
                 account.status(),
                 account.sanctionedUntil(),
                 account.createdAt(),

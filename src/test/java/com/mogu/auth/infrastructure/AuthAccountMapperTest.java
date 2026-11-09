@@ -27,6 +27,7 @@ class AuthAccountMapperTest {
             var until = status == AccountStatus.ACTIVE ? null : now.plusSeconds(100);
             var entity = new AuthAccountJpaEntity(
                     id,
+                    "a".repeat(64),
                     status,
                     until,
                     now,
@@ -35,6 +36,7 @@ class AuthAccountMapperTest {
             var account = mapper.toDomain(entity);
             // then
             assertThat(account.memberId()).isEqualTo(new MemberId(id));
+            assertThat(account.diHash().value()).isEqualTo("a".repeat(64));
             assertThat(account.status()).isEqualTo(status);
             assertThat(account.sanctionedUntil()).isEqualTo(until);
             assertThat(account.createdAt()).isEqualTo(now);
@@ -52,6 +54,7 @@ class AuthAccountMapperTest {
             var until = status == AccountStatus.ACTIVE ? null : now.plusSeconds(100);
             var account = AuthAccount.reconstitute(
                     new MemberId(id),
+                    new com.mogu.auth.domain.DiHash("a".repeat(64)),
                     status,
                     until,
                     now,
@@ -61,6 +64,7 @@ class AuthAccountMapperTest {
             var entity = mapper.toJpaEntity(account);
             // then
             assertThat(entity.getMemberId()).isEqualTo(id);
+            assertThat(entity.getDiHash()).isEqualTo("a".repeat(64));
             assertThat(entity.getStatus()).isEqualTo(status);
             assertThat(entity.getSanctionedUntil()).isEqualTo(until);
             assertThat(entity.getCreatedAt()).isEqualTo(now);
