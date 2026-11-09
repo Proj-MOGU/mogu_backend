@@ -29,6 +29,10 @@ logging:
 
 mogu:
   auth:
+    pii:
+      encryption-keys: ${AUTH_PII_ENCRYPTION_KEYS:}
+      active-key-version: ${AUTH_PII_ACTIVE_KEY_VERSION:1}
+      ephemeral-key-allowed: false
     di:
       pepper: ${AUTH_DI_PEPPER:}
       ephemeral-pepper-allowed: false

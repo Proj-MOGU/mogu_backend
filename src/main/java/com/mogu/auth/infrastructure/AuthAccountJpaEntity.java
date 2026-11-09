@@ -56,6 +56,34 @@ public class AuthAccountJpaEntity {
         this.socialIdentities = List.copyOf(identities);
     }
 
+    @Column(name = "name_enc", columnDefinition = "TEXT")
+    private String nameEnc;
+
+    @Column(name = "phone_enc", columnDefinition = "TEXT")
+    private String phoneEnc;
+
+    public String getNameEnc() {
+        return nameEnc;
+    }
+
+    public String getPhoneEnc() {
+        return phoneEnc;
+    }
+
+    AuthAccountJpaEntity(
+            UUID memberId,
+            String diHash,
+            AccountStatus status,
+            Instant sanctionedUntil,
+            Instant createdAt,
+            List<AuthSocialIdentityJpaEntity> identities,
+            String nameEnc,
+            String phoneEnc) {
+        this(memberId, diHash, status, sanctionedUntil, createdAt, identities);
+        this.nameEnc = nameEnc;
+        this.phoneEnc = phoneEnc;
+    }
+
     protected AuthAccountJpaEntity() {}
 
     AuthAccountJpaEntity(

@@ -39,7 +39,7 @@ class MockIdentityVerificationAdapterTest {
         var clock = Clock.fixed(Instant.parse(instant), ZoneOffset.UTC);
         var jdbc = JdbcClient.create(
                 new DriverManagerDataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()));
-        var adapter = new MockIdentityVerificationAdapter(jdbc, clock, "");
+        var adapter = new MockIdentityVerificationAdapter(jdbc, clock, "", com.mogu.auth.support.PiiTestKeys.cipher());
 
         // when
         var verificationId = adapter.create(UUID.randomUUID(), "01012345678", "VERIFIED");

@@ -93,16 +93,26 @@ public abstract class LoginIntegrationSupport {
     }
 
     protected String token(String provider, String subject) throws Exception {
+        return token(provider, subject, null, null);
+    }
+
+    protected String token(String provider, String subject, Object email, Object emailVerified) throws Exception {
         var now = clock.instant();
         return (provider.equals("kakao") ? fake : google)
-                .sign(new JWTClaimsSet.Builder()
-                        .issuer(provider.equals("kakao") ? "https://kauth.kakao.com" : "https://accounts.google.com")
-                        .audience("test-client")
-                        .subject(subject)
-                        .claim("nonce", nonces.issue().value())
-                        .issueTime(Date.from(now))
-                        .expirationTime(Date.from(now.plusSeconds(300)))
-                        .build());
+                .sign(
+                        new JWTClaimsSet.Builder()
+                                .issuer(
+                                        provider.equals("kakao")
+                                                ? "https://kauth.kakao.com"
+                                                : "https://accounts.google.com")
+                                .audience("test-client")
+                                .subject(subject)
+                                .claim("nonce", nonces.issue().value())
+                                .issueTime(Date.from(now))
+                                .expirationTime(Date.from(now.plusSeconds(300)))
+                                .build(),
+                        email,
+                        emailVerified);
     }
 
     protected ResultActions login(String provider, String token) throws Exception {

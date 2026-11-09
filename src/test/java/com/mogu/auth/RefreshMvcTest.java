@@ -36,6 +36,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest({RefreshController.class, LogoutController.class})
 @ActiveProfiles("test")
 @Import({
+    com.mogu.auth.infrastructure.PiiKeyConfig.class,
     SecurityConfig.class,
     RegistrationKeyConfig.class,
     PendingRegistrationAuthenticationConverter.class,

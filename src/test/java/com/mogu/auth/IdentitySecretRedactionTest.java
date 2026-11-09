@@ -83,7 +83,7 @@ class IdentitySecretRedactionTest extends IdentityIntegrationSupport {
 
         // when: 신규 가입, 기존 회원 연결, 제재 회원의 재가입 시도
         String first = capturePending("kakao", "redaction-first");
-        capture(complete(first, captureVerification(first, null))
+        var registered = capture(complete(first, captureVerification(first, null))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.newMember").value(true)));
         String second = capturePending("google", "redaction-second");
@@ -109,6 +109,22 @@ class IdentitySecretRedactionTest extends IdentityIntegrationSupport {
         capture(complete(sanctioned, captureVerification(sanctioned, "FAILED"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("AUTH_INVALID_IDENTITY_VERIFICATION")));
+
+        // when: 개인정보 조회 응답은 이름만 원문 노출을 허용한다.
+        String accountBody = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(
+                                "/api/auth/me/account")
+                        .header(
+                                "Authorization",
+                                "Bearer " + registered.get("accessToken").asText()))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(accountBody).contains("테스트사용자").doesNotContain(PHONE_A, "010-1234-5678", "hong@kakao.com");
+        assertThat(output.getAll()).doesNotContain("테스트사용자", PHONE_A, "010-1234-5678", "hong@kakao.com");
+        assertThat(responses)
+                .allSatisfy(
+                        body -> assertThat(body).doesNotContain("테스트사용자", PHONE_A, "010-1234-5678", "hong@kakao.com"));
 
         // then: 모든 HTTP 응답과 모든 Mock 결과를 실제로 수집했음을 확인한다.
         assertThat(responses).hasSize(13).allSatisfy(body -> assertThat(body).isNotBlank());
@@ -137,7 +153,7 @@ class IdentitySecretRedactionTest extends IdentityIntegrationSupport {
     }
 
     private String capturePending(String provider, String subject) throws Exception {
-        return capture(login(provider, token(provider, subject))
+        return capture(login(provider, token(provider, subject, "hong@kakao.com", true))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.registrationRequired").value(true)))
                 .get("registrationToken")

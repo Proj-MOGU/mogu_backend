@@ -43,6 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
 @ActiveProfiles("test")
 @TestPropertySource(properties = "logging.level.com.mogu.auth.infrastructure.JsonAuthenticationEntryPoint=DEBUG")
 @Import({
+    com.mogu.auth.infrastructure.PiiKeyConfig.class,
     AccessTokenMvcTest.DummyController.class,
     SecurityConfig.class,
     com.mogu.auth.infrastructure.RegistrationKeyConfig.class,

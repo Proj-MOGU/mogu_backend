@@ -33,7 +33,8 @@ public class IdentityVerificationService {
         if (maxAge.isNegative() || maxAge.isZero()) throw new IllegalArgumentException("mogu.auth.identity.max-age");
     }
 
-    public RegistrationOutcome.Completed verify(UUID registrationId, SocialIdentity social, String verificationId) {
+    public RegistrationOutcome.Completed verify(
+            UUID registrationId, SocialIdentity social, String verificationId, String email, boolean emailVerified) {
         // 실제 업체가 등록되기 전에도 운영 애플리케이션은 기동하며 인증 요청은 실패 처리한다.
         var adapter = adapters.getIfAvailable();
         if (adapter == null) throw invalid();
@@ -47,8 +48,19 @@ public class IdentityVerificationService {
                 || verified.verifiedAt().isAfter(now)
                 || verified.di() == null
                 || verified.di().isBlank()
+                || verified.name() == null
+                || verified.name().isBlank()
+                || verified.phoneNumber() == null
+                || !verified.phoneNumber().replace("-", "").matches("[0-9]{10,11}")
                 || verified.source() == null) throw invalid();
-        return switch (completion.complete(verificationId, diHasher.hash(verified.di()), social)) {
+        return switch (completion.complete(
+                verificationId,
+                diHasher.hash(verified.di()),
+                social,
+                verified.name(),
+                verified.phoneNumber().replace("-", ""),
+                email,
+                emailVerified)) {
             case RegistrationOutcome.Completed result -> result;
             case RegistrationOutcome.Sanctioned ignored ->
                 throw new BusinessException(AuthErrorCode.ACCOUNT_SANCTIONED);

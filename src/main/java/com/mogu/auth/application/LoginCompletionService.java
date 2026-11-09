@@ -36,8 +36,12 @@ public class LoginCompletionService {
         verification.consumeNonce(identity);
         var social = new SocialIdentity(identity.provider(), identity.subject());
         var account = accounts.findBySocialIdentity(social);
-        if (account.isEmpty()) return new LoginOutcome.RegistrationRequired(registrationTokens.issue(social));
+        if (account.isEmpty())
+            return new LoginOutcome.RegistrationRequired(
+                    registrationTokens.issue(social, identity.email(), identity.emailVerified()));
         if (account.get().isSanctionedAt(clock.instant())) return new LoginOutcome.Sanctioned();
+        if (identity.email() != null)
+            accounts.save(account.get().updateSocialEmail(social, identity.email(), identity.emailVerified()));
         var memberId = account.get().memberId();
         return new LoginOutcome.LoggedIn(accessTokens.issue(memberId), refreshTokens.issueNewFamily(memberId));
     }

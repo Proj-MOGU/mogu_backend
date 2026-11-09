@@ -51,7 +51,14 @@ public class RegistrationCompletionService {
     }
 
     @Transactional
-    public RegistrationOutcome complete(String verificationId, DiHash diHash, SocialIdentity social) {
+    public RegistrationOutcome complete(
+            String verificationId,
+            DiHash diHash,
+            SocialIdentity social,
+            String name,
+            String phoneNumber,
+            String email,
+            boolean emailVerified) {
         registrationLock.lock(diHash, social);
         var now = clock.instant().truncatedTo(ChronoUnit.MICROS);
         if (!used.markUsed(verificationId, now))
@@ -63,6 +70,7 @@ public class RegistrationCompletionService {
         boolean newMember = existing.isEmpty();
         var account = existing.map(a -> a.link(social, now))
                 .orElseGet(() -> AuthAccount.register(memberIds.generate(), diHash, social, now));
+        account = account.updatePersonalInfo(name, phoneNumber).updateSocialEmail(social, email, emailVerified);
         accounts.save(account);
         if (newMember) publisher.publishEvent(new MemberRegistered(account.memberId(), now));
         return new RegistrationOutcome.Completed(

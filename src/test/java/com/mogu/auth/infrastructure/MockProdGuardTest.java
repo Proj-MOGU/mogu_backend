@@ -58,6 +58,7 @@ class MockProdGuardTest {
     private ApplicationContextRunner mockRunner() {
         return runner.withUserConfiguration(
                         MockIdentityVerificationAdapter.class, MockIdentityVerificationController.class)
+                .withBean(com.mogu.auth.application.PiiCipher.class, com.mogu.auth.support.PiiTestKeys::cipher)
                 .withBean(JdbcClient.class, () -> mock(JdbcClient.class))
                 .withBean("authClock", Clock.class, Clock::systemUTC);
     }

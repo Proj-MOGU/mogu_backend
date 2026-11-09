@@ -26,6 +26,8 @@ public class IdentityVerificationController {
                 .body(IdentityVerificationResponse.from(service.verify(
                         pending.registrationId(),
                         new SocialIdentity(pending.provider(), pending.providerSubject()),
-                        request.verificationId())));
+                        request.verificationId(),
+                        pending.email(),
+                        pending.emailVerified())));
     }
 }

@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(NonceController.class)
 @ActiveProfiles("test")
 @Import({
+    com.mogu.auth.infrastructure.PiiKeyConfig.class,
     NonceController.class,
     NonceService.class,
     NonceKeyConfig.class,

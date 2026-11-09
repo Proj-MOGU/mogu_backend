@@ -30,6 +30,32 @@ public class AuthSocialIdentityJpaEntity {
     @Column(name = "linked_at", nullable = false)
     private Instant linkedAt;
 
+    @Column(name = "email_enc", columnDefinition = "TEXT")
+    private String emailEnc;
+
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified;
+
+    public String getEmailEnc() {
+        return emailEnc;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified;
+    }
+
+    AuthSocialIdentityJpaEntity(
+            AuthProvider provider,
+            String providerSubject,
+            UUID memberId,
+            Instant linkedAt,
+            String emailEnc,
+            boolean emailVerified) {
+        this(provider, providerSubject, memberId, linkedAt);
+        this.emailEnc = emailEnc;
+        this.emailVerified = emailVerified;
+    }
+
     protected AuthSocialIdentityJpaEntity() {}
 
     AuthSocialIdentityJpaEntity(AuthProvider provider, String providerSubject, UUID memberId, Instant linkedAt) {
