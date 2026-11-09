@@ -54,6 +54,18 @@ public class RefreshToken {
         return new RefreshToken(id, familyId, memberId, tokenHash, issuedAt, expiresAt, usedAt, revokedAt);
     }
 
+    public boolean isUsed() {
+        return usedAt != null;
+    }
+
+    public boolean isRevoked() {
+        return revokedAt != null;
+    }
+
+    public boolean isExpiredAt(Instant now) {
+        return !expiresAt.isAfter(now);
+    }
+
     public UUID id() {
         return id;
     }
