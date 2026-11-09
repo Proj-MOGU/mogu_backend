@@ -38,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 @ActiveProfiles("test")
 @WebMvcTest(GlobalExceptionHandlerTest.DummyController.class)
 @Import({
+    com.mogu.auth.infrastructure.PiiKeyConfig.class,
     SecurityConfig.class,
     com.mogu.auth.infrastructure.RegistrationKeyConfig.class,
     com.mogu.auth.infrastructure.PendingRegistrationAuthenticationConverter.class,

@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtRegistrationTokenIssuer implements RegistrationTokenIssuer {
+    private final com.mogu.auth.application.PiiCipher cipher;
     private final JwtEncoder encoder;
     private final RegistrationJwtProperties properties;
     private final Clock clock;
@@ -26,7 +27,9 @@ public class JwtRegistrationTokenIssuer implements RegistrationTokenIssuer {
             @Qualifier("registrationJwtEncoder") JwtEncoder encoder,
             RegistrationJwtProperties properties,
             @Qualifier("authClock") Clock clock,
-            @Qualifier("registrationSigningKey") JwtSigningKey signingKey) {
+            @Qualifier("registrationSigningKey") JwtSigningKey signingKey,
+            com.mogu.auth.application.PiiCipher cipher) {
+        this.cipher = cipher;
         this.encoder = encoder;
         this.properties = properties;
         this.clock = clock;
@@ -34,10 +37,10 @@ public class JwtRegistrationTokenIssuer implements RegistrationTokenIssuer {
     }
 
     @Override
-    public IssuedRegistrationToken issue(SocialIdentity identity) {
+    public IssuedRegistrationToken issue(SocialIdentity identity, String email, boolean emailVerified) {
         var now = clock.instant().truncatedTo(ChronoUnit.SECONDS);
         var expiresAt = now.plus(properties.ttl());
-        var claims = JwtClaimsSet.builder()
+        var builder = JwtClaimsSet.builder()
                 .issuer(properties.issuer())
                 .audience(List.of(properties.audience()))
                 .subject(UUID.randomUUID().toString())
@@ -45,8 +48,16 @@ public class JwtRegistrationTokenIssuer implements RegistrationTokenIssuer {
                 .claim("provider_sub", identity.subject())
                 .issuedAt(now)
                 .expiresAt(expiresAt)
-                .id(UUID.randomUUID().toString())
-                .build();
+                .id(UUID.randomUUID().toString());
+        if (email != null)
+            builder.claim(
+                            "email_enc",
+                            cipher.encrypt(
+                                    email,
+                                    AuthAccountMapper.emailContext(
+                                            identity.provider().name(), identity.subject())))
+                    .claim("email_verified", emailVerified);
+        var claims = builder.build();
         var header = JwsHeader.with(SignatureAlgorithm.ES256)
                 .keyId(keyId)
                 .type("registration+jwt")

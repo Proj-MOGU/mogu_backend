@@ -4,7 +4,17 @@ import com.mogu.auth.domain.AuthProvider;
 import java.util.Objects;
 import java.util.UUID;
 
-public record PendingSocialIdentity(UUID registrationId, AuthProvider provider, String providerSubject) {
+public record PendingSocialIdentity(
+        UUID registrationId, AuthProvider provider, String providerSubject, String email, boolean emailVerified) {
+    public PendingSocialIdentity(UUID registrationId, AuthProvider provider, String providerSubject) {
+        this(registrationId, provider, providerSubject, null, false);
+    }
+
+    @Override
+    public String toString() {
+        return "PendingSocialIdentity[personalInfo=***]";
+    }
+
     public PendingSocialIdentity {
         Objects.requireNonNull(registrationId);
         Objects.requireNonNull(provider);

@@ -97,6 +97,13 @@ public final class FakeOidcProvider implements AutoCloseable {
         release.countDown();
     }
 
+    public String sign(JWTClaimsSet claims, Object email, Object emailVerified) throws Exception {
+        return sign(new JWTClaimsSet.Builder(claims)
+                .claim("email", email)
+                .claim("email_verified", emailVerified)
+                .build());
+    }
+
     public String sign(JWTClaimsSet claims) throws Exception {
         return sign(claims, signingKey);
     }

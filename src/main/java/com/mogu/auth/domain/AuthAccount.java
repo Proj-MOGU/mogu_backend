@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Objects;
 
 public class AuthAccount {
+    private final String name;
+    private final String phoneNumber;
     private final MemberId memberId;
     private final DiHash diHash;
     private final AccountStatus status;
@@ -21,12 +23,16 @@ public class AuthAccount {
             AccountStatus status,
             Instant sanctionedUntil,
             Instant createdAt,
-            List<LinkedSocialIdentity> socialIdentities) {
+            List<LinkedSocialIdentity> socialIdentities,
+            String name,
+            String phoneNumber) {
         Objects.requireNonNull(memberId);
         Objects.requireNonNull(status);
         Objects.requireNonNull(createdAt);
         if (status != AccountStatus.SANCTIONED && sanctionedUntil != null)
             throw new IllegalArgumentException("Invalid sanction state");
+        this.name = name;
+        this.phoneNumber = phoneNumber;
         this.memberId = memberId;
         this.diHash = Objects.requireNonNull(diHash);
         this.status = status;
@@ -41,13 +47,56 @@ public class AuthAccount {
             AccountStatus status,
             Instant sanctionedUntil,
             Instant createdAt,
-            List<LinkedSocialIdentity> socialIdentities) {
-        return new AuthAccount(memberId, diHash, status, sanctionedUntil, createdAt, socialIdentities);
+            List<LinkedSocialIdentity> socialIdentities,
+            String name,
+            String phoneNumber) {
+        return new AuthAccount(
+                memberId, diHash, status, sanctionedUntil, createdAt, socialIdentities, name, phoneNumber);
     }
 
     public static AuthAccount register(MemberId memberId, DiHash diHash, SocialIdentity first, Instant now) {
         return new AuthAccount(
-                memberId, diHash, AccountStatus.ACTIVE, null, now, List.of(new LinkedSocialIdentity(first, now)));
+                memberId,
+                diHash,
+                AccountStatus.ACTIVE,
+                null,
+                now,
+                List.of(new LinkedSocialIdentity(first, now)),
+                null,
+                null);
+    }
+
+    public static AuthAccount reconstitute(
+            MemberId memberId,
+            DiHash diHash,
+            AccountStatus status,
+            Instant sanctionedUntil,
+            Instant createdAt,
+            List<LinkedSocialIdentity> socialIdentities) {
+        return reconstitute(memberId, diHash, status, sanctionedUntil, createdAt, socialIdentities, null, null);
+    }
+
+    public String name() {
+        return name;
+    }
+
+    public String phoneNumber() {
+        return phoneNumber;
+    }
+
+    public AuthAccount updatePersonalInfo(String name, String phoneNumber) {
+        return new AuthAccount(
+                memberId, diHash, status, sanctionedUntil, createdAt, socialIdentities, name, phoneNumber);
+    }
+
+    public AuthAccount updateSocialEmail(SocialIdentity social, String email, boolean verified) {
+        if (email == null) return this;
+        var updated = socialIdentities.stream()
+                .map(i -> i.identity().equals(social)
+                        ? new LinkedSocialIdentity(i.identity(), i.linkedAt(), email, verified)
+                        : i)
+                .toList();
+        return new AuthAccount(memberId, diHash, status, sanctionedUntil, createdAt, updated, name, phoneNumber);
     }
 
     public DiHash diHash() {
@@ -62,15 +111,17 @@ public class AuthAccount {
             throw new BusinessException(AuthErrorCode.PROVIDER_ALREADY_LINKED);
         var linked = new ArrayList<>(socialIdentities);
         linked.add(new LinkedSocialIdentity(identity, now));
-        return new AuthAccount(memberId, diHash, status, sanctionedUntil, createdAt, linked);
+        return new AuthAccount(memberId, diHash, status, sanctionedUntil, createdAt, linked, name, phoneNumber);
     }
 
     public AuthAccount sanction(Instant until) {
-        return new AuthAccount(memberId, diHash, AccountStatus.SANCTIONED, until, createdAt, socialIdentities);
+        return new AuthAccount(
+                memberId, diHash, AccountStatus.SANCTIONED, until, createdAt, socialIdentities, name, phoneNumber);
     }
 
     public AuthAccount lift() {
-        return new AuthAccount(memberId, diHash, AccountStatus.ACTIVE, null, createdAt, socialIdentities);
+        return new AuthAccount(
+                memberId, diHash, AccountStatus.ACTIVE, null, createdAt, socialIdentities, name, phoneNumber);
     }
 
     public MemberId memberId() {

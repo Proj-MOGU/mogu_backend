@@ -42,12 +42,37 @@ public class AuthAccountRepositoryAdapter implements AuthAccountRepository {
     @Override
     public void save(AuthAccount account) {
         var entity = mapper.toJpaEntity(account);
+        // 조회에서 생략된 복호화 실패 값은 다른 상태 저장 때문에 삭제하지 않는다.
+        var previous = accounts.findById(entity.getMemberId());
+        String nameEnc = entity.getNameEnc() != null
+                ? entity.getNameEnc()
+                : previous.map(AuthAccountJpaEntity::getNameEnc).orElse(null);
+        String phoneEnc = entity.getPhoneEnc() != null
+                ? entity.getPhoneEnc()
+                : previous.map(AuthAccountJpaEntity::getPhoneEnc).orElse(null);
         accounts.saveAndFlush(new AuthAccountJpaEntity(
                 entity.getMemberId(),
                 entity.getDiHash(),
                 entity.getStatus(),
                 entity.getSanctionedUntil(),
-                entity.getCreatedAt()));
-        identities.saveAllAndFlush(entity.getSocialIdentities());
+                entity.getCreatedAt(),
+                java.util.List.of(),
+                nameEnc,
+                phoneEnc));
+        var linked = entity.getSocialIdentities().stream()
+                .map(i -> {
+                    if (i.getEmailEnc() != null) return i;
+                    var old = identities.findById(new AuthSocialIdentityId(i.getProvider(), i.getProviderSubject()));
+                    return new AuthSocialIdentityJpaEntity(
+                            i.getProvider(),
+                            i.getProviderSubject(),
+                            i.getMemberId(),
+                            i.getLinkedAt(),
+                            old.map(AuthSocialIdentityJpaEntity::getEmailEnc).orElse(null),
+                            old.map(AuthSocialIdentityJpaEntity::isEmailVerified)
+                                    .orElse(false));
+                })
+                .toList();
+        identities.saveAllAndFlush(linked);
     }
 }

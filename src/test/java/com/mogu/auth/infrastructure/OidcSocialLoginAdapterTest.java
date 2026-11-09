@@ -224,6 +224,36 @@ class OidcSocialLoginAdapterTest {
         // when / then
         rejected(adapter, fake.sign(claims().build()), AuthErrorCode.INVALID_SOCIAL_TOKEN);
     }
+
+    @Test
+    @DisplayName("이메일 검증 상태는 불리언 true와 문자열 true만 인정한다")
+    void extractsEmailVerificationStrictly() throws Exception {
+        // given
+        var adapter = adapter();
+        // when / then
+        for (Object verified : new Object[] {true, "true", false, "false", "TRUE", 1}) {
+            var identity = adapter.verify(fake.sign(claims().build(), "hong@gmail.com", verified));
+            assertThat(identity.email()).isEqualTo("hong@gmail.com");
+            assertThat(identity.emailVerified()).isEqualTo(Boolean.TRUE.equals(verified) || "true".equals(verified));
+            assertThat(identity.toString()).doesNotContain("hong@gmail.com");
+        }
+    }
+
+    @Test
+    @DisplayName("이메일 타입과 길이가 잘못되면 이메일만 버리고 로그인은 허용한다")
+    void ignoresInvalidEmail() throws Exception {
+        // given
+        var adapter = adapter();
+        // when / then
+        for (Object email : new Object[] {123, java.util.Map.of("x", "y"), "invalid", "a".repeat(315) + "@b.com"}) {
+            var identity = adapter.verify(fake.sign(claims().build(), email, true));
+            assertThat(identity.subject()).isEqualTo("subject");
+            assertThat(identity.email()).isNull();
+            assertThat(identity.emailVerified()).isFalse();
+        }
+        var boundary = adapter.verify(fake.sign(claims().build(), "a".repeat(314) + "@b.com", true));
+        assertThat(boundary.email()).hasSize(320);
+    }
 }
 
 class OidcSocialLoginFailureClassificationTest {

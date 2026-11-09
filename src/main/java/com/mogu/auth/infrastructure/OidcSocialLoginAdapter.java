@@ -89,7 +89,15 @@ public abstract class OidcSocialLoginAdapter implements SocialLoginAdapter {
             var rawClaims = SignedJWT.parse(idToken).getPayload().toJSONObject();
             if (rawClaims == null || !nonBlankString(rawClaims.get("sub")) || !nonBlankString(rawClaims.get("nonce")))
                 throw new JwtException("Invalid required claim types");
-            return new VerifiedSocialIdentity(provider, jwt.getSubject(), jwt.getClaimAsString("nonce"));
+            Object rawEmail = rawClaims.get("email");
+            String email = rawEmail instanceof String text && text.length() <= 320 && text.contains("@") ? text : null;
+            Object verified = rawClaims.get("email_verified");
+            return new VerifiedSocialIdentity(
+                    provider,
+                    jwt.getSubject(),
+                    jwt.getClaimAsString("nonce"),
+                    email,
+                    email != null && (Boolean.TRUE.equals(verified) || "true".equals(verified)));
         } catch (JwtException | ParseException exception) {
             boolean unavailable = unavailable(exception);
             log.debug("{} {}", provider, unavailable ? "PROVIDER_UNAVAILABLE" : "INVALID_SOCIAL_TOKEN");

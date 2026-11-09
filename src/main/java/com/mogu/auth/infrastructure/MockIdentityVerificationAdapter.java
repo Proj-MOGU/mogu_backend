@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @Profile({"local", "test"})
 public class MockIdentityVerificationAdapter implements IdentityVerificationAdapter, MockIdentityVerificationCreator {
+    private final com.mogu.auth.application.PiiCipher cipher;
     private final JdbcClient jdbc;
     private final Clock clock;
     private final HmacDiHasher mockHasher;
@@ -31,7 +32,9 @@ public class MockIdentityVerificationAdapter implements IdentityVerificationAdap
     public MockIdentityVerificationAdapter(
             JdbcClient jdbc,
             @Qualifier("authClock") Clock clock,
-            @Value("${mogu.auth.mock-identity.secret:}") String secret) {
+            @Value("${mogu.auth.mock-identity.secret:}") String secret,
+            com.mogu.auth.application.PiiCipher cipher) {
+        this.cipher = cipher;
         this.jdbc = jdbc;
         this.clock = clock;
         byte[] key;
@@ -52,6 +55,7 @@ public class MockIdentityVerificationAdapter implements IdentityVerificationAdap
     @Override
     @Transactional
     public String create(UUID registrationId, String phoneNumber, String outcome) {
+        phoneNumber = phoneNumber == null ? null : phoneNumber.replace("-", "");
         if (registrationId == null
                 || phoneNumber == null
                 || !phoneNumber.matches("^01[016789][0-9]{7,8}$")
@@ -61,7 +65,10 @@ public class MockIdentityVerificationAdapter implements IdentityVerificationAdap
         random.nextBytes(bytes);
         String id = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         jdbc.sql("INSERT INTO auth_mock_identity_verification(verification_id, registration_id, mock_di,"
-                        + " outcome, verified_at) VALUES (:id, :registration, :di, :outcome, :now)")
+                        + " outcome, verified_at, phone_enc, name_enc) VALUES (:id, :registration, :di, :outcome,"
+                        + " :now, :phone, :name)")
+                .param("phone", cipher.encrypt(phoneNumber, "auth_mock_identity_verification.phone_enc:" + id))
+                .param("name", cipher.encrypt("테스트사용자", "auth_mock_identity_verification.name_enc:" + id))
                 .param("id", id)
                 .param("registration", registrationId)
                 .param("di", mockHasher.hash(phoneNumber).value())
@@ -85,10 +92,25 @@ public class MockIdentityVerificationAdapter implements IdentityVerificationAdap
                             rs.getObject("registration_id", UUID.class),
                             di,
                             rs.getTimestamp("verified_at").toInstant(),
-                            IdentitySource.MOCK);
+                            IdentitySource.MOCK,
+                            decrypt(
+                                    rs.getString("name_enc"),
+                                    "auth_mock_identity_verification.name_enc:" + verificationId),
+                            decrypt(
+                                    rs.getString("phone_enc"),
+                                    "auth_mock_identity_verification.phone_enc:" + verificationId));
                 })
                 .optional()
                 .orElseThrow(MockIdentityVerificationAdapter::invalid);
+    }
+
+    private String decrypt(String value, String context) {
+        if (value == null) throw invalid();
+        try {
+            return cipher.decrypt(value, context);
+        } catch (IllegalStateException ignored) {
+            throw invalid();
+        }
     }
 
     private static BusinessException invalid() {

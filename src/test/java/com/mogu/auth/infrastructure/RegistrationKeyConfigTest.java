@@ -101,7 +101,8 @@ class RegistrationKeyConfigTest {
                             context.getBean("registrationJwtEncoder", JwtEncoder.class),
                             properties,
                             clock,
-                            context.getBean("registrationSigningKey", JwtSigningKey.class));
+                            context.getBean("registrationSigningKey", JwtSigningKey.class),
+                            com.mogu.auth.support.PiiTestKeys.cipher());
                     var token = issuer.issue(new com.mogu.auth.domain.SocialIdentity(
                             com.mogu.auth.domain.AuthProvider.KAKAO, "subject"));
                     assertThat(context.getBean("registrationJwtDecoder", JwtDecoder.class)

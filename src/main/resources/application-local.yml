@@ -6,6 +6,8 @@ spring:
 
 mogu:
   auth:
+    pii:
+      ephemeral-key-allowed: true
     di:
       ephemeral-pepper-allowed: true
     mock-identity:

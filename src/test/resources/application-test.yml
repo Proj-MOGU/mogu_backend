@@ -1,5 +1,7 @@
 mogu:
   auth:
+    pii:
+      ephemeral-key-allowed: true
     refresh-token:
       cleanup-interval: P365D
     di:

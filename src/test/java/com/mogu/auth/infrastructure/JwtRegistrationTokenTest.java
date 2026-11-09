@@ -41,7 +41,8 @@ class JwtRegistrationTokenTest {
         key = new JwtSigningKey(
                 new ECKeyGenerator(Curve.P_256).keyID("registration").generate());
         var config = new RegistrationKeyConfig();
-        issuer = new JwtRegistrationTokenIssuer(config.registrationJwtEncoder(key), properties, clock, key);
+        issuer = new JwtRegistrationTokenIssuer(
+                config.registrationJwtEncoder(key), properties, clock, key, com.mogu.auth.support.PiiTestKeys.cipher());
         decoder = config.registrationJwtDecoder(key, properties, clock);
     }
 
@@ -151,5 +152,25 @@ class JwtRegistrationTokenTest {
         var issued = issuer.issue(new SocialIdentity(AuthProvider.KAKAO, "subject"));
         // when / then
         assertThatThrownBy(() -> accessDecoder.decode(issued.value())).isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    @DisplayName("가입 대기 이메일은 암호화된 클레임으로 전달하고 인증 후에만 복호화한다")
+    void carriesEncryptedEmail() {
+        // given
+        var social = new SocialIdentity(AuthProvider.KAKAO, "subject");
+        // when
+        var token = issuer.issue(social, "hong@kakao.com", true);
+        var jwt = decoder.decode(token.value());
+        var authentication =
+                new PendingRegistrationAuthenticationConverter(com.mogu.auth.support.PiiTestKeys.cipher()).convert(jwt);
+        var pending = (com.mogu.auth.api.PendingSocialIdentity) authentication.getPrincipal();
+        // then
+        assertThat(jwt.getClaims().toString()).doesNotContain("hong@kakao.com");
+        assertThat(jwt.getClaimAsString("email_enc")).startsWith("v1.");
+        assertThat(pending.email()).isEqualTo("hong@kakao.com");
+        assertThat(pending.emailVerified()).isTrue();
+        assertThat(pending.toString()).doesNotContain("hong@kakao.com");
+        assertThat(authentication.toString()).doesNotContain("hong@kakao.com");
     }
 }
