@@ -35,9 +35,30 @@ class NicknameTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"운영자123", "ADMIN", "MoguFan", "관리자님", "운영팀원", "고객센터1", "모구짱", "xxOfficial"})
+    @ValueSource(strings = {"운영자123", "ADMIN", "관리자님", "운영팀원", "고객센터1", "xxOfficial"})
     @DisplayName("예약어가 포함된 닉네임을 거부한다")
     void rejectsReservedNickname(String value) {
+        // given / when / then
+        assertThatThrownBy(() -> Nickname.of(value))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        error -> assertThat(error.errorCode()).isEqualTo(MemberErrorCode.RESERVED_NICKNAME));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"모구", "MOGU", "모구짱", "mogu123", "모구mogu", "MoguFan"})
+    @DisplayName("서비스 이름이 포함된 닉네임을 허용한다")
+    void acceptsNicknameContainingServiceName(String value) {
+        // given / when
+        Nickname nickname = Nickname.of(value);
+        // then
+        assertThat(nickname.value()).isEqualTo(value);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"모구운영자", "moguAdmin"})
+    @DisplayName("서비스 이름과 운영진 사칭 예약어가 함께 포함된 닉네임을 거부한다")
+    void rejectsServiceNameWithReservedWord(String value) {
         // given / when / then
         assertThatThrownBy(() -> Nickname.of(value))
                 .isInstanceOfSatisfying(

@@ -6,8 +6,7 @@ import java.util.List;
 import java.util.Locale;
 
 public record Nickname(String value) {
-    private static final List<String> RESERVED_WORDS =
-            List.of("운영자", "관리자", "운영팀", "고객센터", "모구", "admin", "mogu", "official");
+    private static final List<String> RESERVED_WORDS = List.of("운영자", "관리자", "운영팀", "고객센터", "admin", "official");
 
     public Nickname {
         if (value == null) throw new BusinessException(MemberErrorCode.INVALID_NICKNAME);
