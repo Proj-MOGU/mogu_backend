@@ -289,27 +289,44 @@
       "MyProfileResponse" : {
         "properties" : {
           "bio" : {
+            "description" : "최대 50자, 줄바꿈 불가. 비우면 없음",
+            "example" : "동네 공동구매 자주 열어요",
             "type" : "string"
           },
           "completed" : {
+            "description" : "닉네임 입력 완료 여부",
+            "example" : true,
             "type" : "boolean"
           },
           "memberId" : {
+            "description" : "회원 ID (UUID)",
+            "example" : "0193a5b0-7c1e-7d2a-9f00-1a2b3c4d5e6f",
             "format" : "uuid",
             "type" : "string"
           },
           "nickname" : {
+            "description" : "2~12자 한글·영문·숫자. 운영진 사칭 단어 불가. 대소문자 무시 중복 불가",
+            "example" : "모구러버",
             "type" : "string"
           },
           "nicknameChangeableAt" : {
+            "description" : "다음 닉네임 변경 가능 시각 (UTC). 지금 변경할 수 없을 때만 포함",
+            "example" : "2026-12-09T07:00:00Z",
             "format" : "date-time",
             "type" : "string"
           },
           "registeredAt" : {
+            "description" : "가입 시각 (UTC)",
+            "example" : "2026-11-09T07:00:00Z",
             "format" : "date-time",
             "type" : "string"
           }
         },
+        "required" : [
+          "completed",
+          "memberId",
+          "registeredAt"
+        ],
         "type" : "object"
       },
       "NonceResponse" : {
@@ -335,16 +352,26 @@
       "PublicProfileResponse" : {
         "properties" : {
           "bio" : {
+            "description" : "최대 50자, 줄바꿈 불가. 비우면 없음",
+            "example" : "동네 공동구매 자주 열어요",
             "type" : "string"
           },
           "memberId" : {
+            "description" : "회원 ID (UUID)",
+            "example" : "0193a5b0-7c1e-7d2a-9f00-1a2b3c4d5e6f",
             "format" : "uuid",
             "type" : "string"
           },
           "nickname" : {
+            "description" : "2~12자 한글·영문·숫자. 운영진 사칭 단어 불가. 대소문자 무시 중복 불가",
+            "example" : "모구러버",
             "type" : "string"
           }
         },
+        "required" : [
+          "memberId",
+          "nickname"
+        ],
         "type" : "object"
       },
       "RefreshRequest" : {
@@ -398,9 +425,13 @@
       "UpdateMyProfileRequest" : {
         "properties" : {
           "bio" : {
+            "description" : "최대 50자, 줄바꿈 불가. 비우면 없음",
+            "example" : "동네 공동구매 자주 열어요",
             "type" : "string"
           },
           "nickname" : {
+            "description" : "2~12자 한글·영문·숫자. 운영진 사칭 단어 불가. 대소문자 무시 중복 불가",
+            "example" : "모구러버",
             "minLength" : 1,
             "type" : "string"
           }
@@ -791,6 +822,7 @@
     },
     "/api/members/me" : {
       "get" : {
+        "description" : "가입 직후 닉네임 입력 전이면 completed=false이고 nickname은 생략됩니다. nicknameChangeableAt은 지금 닉네임을 바꿀 수 없을 때만 포함됩니다.",
         "operationId" : "getMyProfile",
         "parameters" : [
           {
@@ -811,14 +843,36 @@
                 }
               }
             },
-            "description" : "OK"
+            "description" : "내 프로필 조회 성공"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "로그인 필요 (AUTH_UNAUTHORIZED)"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "회원 프로필 없음 (MEMBER_PROFILE_NOT_FOUND)"
           }
         },
+        "summary" : "내 프로필 조회",
         "tags" : [
-          "member-profile-controller"
+          "회원"
         ]
       },
       "put" : {
+        "description" : "닉네임은 필수이며 30일에 한 번만 바꿀 수 있습니다. 처음 입력은 변경 횟수에 포함하지 않습니다. PUT 요청이므로 bio를 생략하면 기존 한줄소개가 지워집니다.",
         "operationId" : "updateMyProfile",
         "parameters" : [
           {
@@ -849,19 +903,63 @@
                 }
               }
             },
-            "description" : "OK"
+            "description" : "내 프로필 입력·수정 성공"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "입력값 오류 (COMMON_INVALID_INPUT, MEMBER_INVALID_NICKNAME, MEMBER_RESERVED_NICKNAME, MEMBER_INVALID_BIO)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "로그인 필요 (AUTH_UNAUTHORIZED)"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "회원 프로필 없음 (MEMBER_PROFILE_NOT_FOUND)"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "닉네임 중복 또는 변경 주기 위반 (MEMBER_DUPLICATE_NICKNAME, MEMBER_NICKNAME_CHANGE_TOO_SOON)"
           }
         },
+        "summary" : "내 프로필 입력·수정",
         "tags" : [
-          "member-profile-controller"
+          "회원"
         ]
       }
     },
     "/api/members/{memberId}" : {
       "get" : {
+        "description" : "회원 ID와 공개 항목인 닉네임, 한줄소개만 반환합니다. 없는 회원, 닉네임 입력 전 회원, UUID 형식이 아닌 값은 모두 같은 404 오류를 반환합니다.",
         "operationId" : "getPublicProfile",
         "parameters" : [
           {
+            "description" : "조회할 회원 ID (UUID)",
+            "example" : "0193a5b0-7c1e-7d2a-9f00-1a2b3c4d5e6f",
             "in" : "path",
             "name" : "memberId",
             "required" : true,
@@ -879,11 +977,32 @@
                 }
               }
             },
-            "description" : "OK"
+            "description" : "다른 회원 프로필 조회 성공"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "로그인 필요 (AUTH_UNAUTHORIZED)"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "회원 프로필 없음 (MEMBER_PROFILE_NOT_FOUND)"
           }
         },
+        "summary" : "다른 회원 프로필 조회",
         "tags" : [
-          "member-profile-controller"
+          "회원"
         ]
       }
     }
@@ -896,6 +1015,12 @@
   "servers" : [
     {
       "url" : "/"
+    }
+  ],
+  "tags" : [
+    {
+      "description" : "회원 프로필 조회·입력·수정",
+      "name" : "회원"
     }
   ]
 }
