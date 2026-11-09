@@ -1,0 +1,901 @@
+{
+  "components" : {
+    "schemas" : {
+      "AccountInfoResponse" : {
+        "properties" : {
+          "loginMethods" : {
+            "description" : "연결된 소셜 로그인 방식 목록",
+            "example" : [ ],
+            "items" : {
+              "$ref" : "#/components/schemas/LoginMethod"
+            },
+            "type" : "array"
+          },
+          "name" : {
+            "description" : "본인인증 이름. 저장된 값이 없으면 생략",
+            "example" : "사용자",
+            "type" : "string"
+          },
+          "phoneNumber" : {
+            "description" : "마스킹된 휴대폰 번호. 저장된 값이 없으면 생략",
+            "example" : "010-****-5678",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "loginMethods"
+        ],
+        "type" : "object"
+      },
+      "ErrorResponse" : {
+        "properties" : {
+          "code" : {
+            "description" : "오류 코드",
+            "example" : "COMMON_INVALID_INPUT",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "입력 검증 실패 시 필드별 오류. 없으면 생략",
+            "example" : [
+              {
+                "field" : "idToken",
+                "reason" : "ID Token을 입력해 주세요."
+              }
+            ],
+            "items" : {
+              "$ref" : "#/components/schemas/FieldErrorResponse"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "오류 안내 메시지",
+            "example" : "입력값이 올바르지 않습니다.",
+            "type" : "string"
+          },
+          "traceId" : {
+            "description" : "서버 내부 오류 추적 식별자. 그 외에는 생략",
+            "example" : "trace-id-placeholder",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "code",
+          "message"
+        ],
+        "type" : "object"
+      },
+      "FieldErrorResponse" : {
+        "properties" : {
+          "field" : {
+            "description" : "검증에 실패한 필드 이름",
+            "example" : "idToken",
+            "type" : "string"
+          },
+          "reason" : {
+            "description" : "필드 검증 실패 이유",
+            "example" : "ID Token을 입력해 주세요.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "field",
+          "reason"
+        ],
+        "type" : "object"
+      },
+      "IdentityVerificationRequest" : {
+        "properties" : {
+          "verificationId" : {
+            "description" : "본인인증 결과 식별자",
+            "example" : "verification-id-placeholder",
+            "maxLength" : 64,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "verificationId"
+        ],
+        "type" : "object"
+      },
+      "IdentityVerificationResponse" : {
+        "properties" : {
+          "accessToken" : {
+            "description" : "Access Token",
+            "example" : "eyJ...",
+            "type" : "string"
+          },
+          "accessTokenExpiresAt" : {
+            "description" : "Access Token 만료 시각",
+            "example" : "2026-01-01T00:15:00Z",
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "newMember" : {
+            "description" : "신규 회원 여부. true이면 프로필 입력 필요",
+            "example" : true,
+            "type" : "boolean"
+          },
+          "refreshToken" : {
+            "description" : "Refresh Token",
+            "example" : "refresh-token-placeholder",
+            "type" : "string"
+          },
+          "refreshTokenExpiresAt" : {
+            "description" : "Refresh Token 만료 시각",
+            "example" : "2026-01-31T00:00:00Z",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "accessToken",
+          "accessTokenExpiresAt",
+          "newMember",
+          "refreshToken",
+          "refreshTokenExpiresAt"
+        ],
+        "type" : "object"
+      },
+      "LoginMethod" : {
+        "properties" : {
+          "email" : {
+            "description" : "마스킹된 이메일. 저장된 값이 없으면 생략",
+            "example" : "u***@example.com",
+            "type" : "string"
+          },
+          "emailVerified" : {
+            "description" : "소셜 제공자가 확인한 이메일 여부",
+            "example" : true,
+            "type" : "boolean"
+          },
+          "linkedAt" : {
+            "description" : "소셜 로그인 연결 시각",
+            "example" : "2026-01-01T00:00:00Z",
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "provider" : {
+            "description" : "소셜 로그인 제공자",
+            "enum" : [
+              "KAKAO",
+              "GOOGLE"
+            ],
+            "example" : "KAKAO",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "emailVerified",
+          "linkedAt",
+          "provider"
+        ],
+        "type" : "object"
+      },
+      "LoginRequest" : {
+        "properties" : {
+          "idToken" : {
+            "description" : "소셜 제공자의 ID Token",
+            "example" : "eyJ...",
+            "maxLength" : 8192,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "idToken"
+        ],
+        "type" : "object"
+      },
+      "LoginResponse" : {
+        "properties" : {
+          "accessToken" : {
+            "description" : "Access Token. registrationRequired가 false일 때만 포함",
+            "example" : "eyJ...",
+            "type" : "string"
+          },
+          "accessTokenExpiresAt" : {
+            "description" : "Access Token 만료 시각. registrationRequired가 false일 때만 포함",
+            "example" : "2026-01-01T00:15:00Z",
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "refreshToken" : {
+            "description" : "Refresh Token. registrationRequired가 false일 때만 포함",
+            "example" : "refresh-token-placeholder",
+            "type" : "string"
+          },
+          "refreshTokenExpiresAt" : {
+            "description" : "Refresh Token 만료 시각. registrationRequired가 false일 때만 포함",
+            "example" : "2026-01-31T00:00:00Z",
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "registrationRequired" : {
+            "description" : "본인인증을 통한 가입 완료 필요 여부",
+            "example" : true,
+            "type" : "boolean"
+          },
+          "registrationToken" : {
+            "description" : "가입 대기 Registration Token. registrationRequired가 true일 때만 포함",
+            "example" : "eyJ...",
+            "type" : "string"
+          },
+          "registrationTokenExpiresAt" : {
+            "description" : "Registration Token 만료 시각. registrationRequired가 true일 때만 포함",
+            "example" : "2026-01-01T00:10:00Z",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "registrationRequired"
+        ],
+        "type" : "object"
+      },
+      "LogoutRequest" : {
+        "properties" : {
+          "refreshToken" : {
+            "description" : "Refresh Token",
+            "example" : "refresh-token-placeholder",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "MemberId" : {
+        "properties" : {
+          "value" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "MockIdentityVerificationRequest" : {
+        "properties" : {
+          "outcome" : {
+            "description" : "Mock 인증 결과. 생략하면 VERIFIED",
+            "example" : "VERIFIED",
+            "pattern" : "VERIFIED|FAILED",
+            "type" : "string"
+          },
+          "phoneNumber" : {
+            "description" : "휴대폰 번호 (숫자 10~11자리, 하이픈 허용). Mock 전용이므로 가짜 번호를 쓴다",
+            "example" : "01000000000",
+            "minLength" : 1,
+            "pattern" : "^01[016789]-?[0-9]{3,4}-?[0-9]{4}$",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "phoneNumber"
+        ],
+        "type" : "object"
+      },
+      "MockIdentityVerificationResponse" : {
+        "properties" : {
+          "verificationId" : {
+            "description" : "본인인증 결과 식별자",
+            "example" : "verification-id-placeholder",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "verificationId"
+        ],
+        "type" : "object"
+      },
+      "MyProfileResponse" : {
+        "properties" : {
+          "bio" : {
+            "type" : "string"
+          },
+          "completed" : {
+            "type" : "boolean"
+          },
+          "memberId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "nicknameChangeableAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "registeredAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "NonceResponse" : {
+        "properties" : {
+          "expiresAt" : {
+            "description" : "nonce 만료 시각",
+            "example" : "2026-01-01T00:05:00Z",
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "nonce" : {
+            "description" : "소셜 로그인 재사용 방지용 nonce",
+            "example" : "nonce-placeholder",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "expiresAt",
+          "nonce"
+        ],
+        "type" : "object"
+      },
+      "PublicProfileResponse" : {
+        "properties" : {
+          "bio" : {
+            "type" : "string"
+          },
+          "memberId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "RefreshRequest" : {
+        "properties" : {
+          "refreshToken" : {
+            "description" : "Refresh Token",
+            "example" : "refresh-token-placeholder",
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "refreshToken"
+        ],
+        "type" : "object"
+      },
+      "RefreshResponse" : {
+        "properties" : {
+          "accessToken" : {
+            "description" : "Access Token",
+            "example" : "eyJ...",
+            "type" : "string"
+          },
+          "accessTokenExpiresAt" : {
+            "description" : "Access Token 만료 시각",
+            "example" : "2026-01-01T00:15:00Z",
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "refreshToken" : {
+            "description" : "Refresh Token",
+            "example" : "refresh-token-placeholder",
+            "type" : "string"
+          },
+          "refreshTokenExpiresAt" : {
+            "description" : "Refresh Token 만료 시각",
+            "example" : "2026-01-31T00:00:00Z",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "accessToken",
+          "accessTokenExpiresAt",
+          "refreshToken",
+          "refreshTokenExpiresAt"
+        ],
+        "type" : "object"
+      },
+      "UpdateMyProfileRequest" : {
+        "properties" : {
+          "bio" : {
+            "type" : "string"
+          },
+          "nickname" : {
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "nickname"
+        ],
+        "type" : "object"
+      }
+    },
+    "securitySchemes" : {
+      "accessToken" : {
+        "bearerFormat" : "JWT",
+        "description" : "로그인 후 받은 Access Token",
+        "scheme" : "bearer",
+        "type" : "http"
+      },
+      "registrationToken" : {
+        "bearerFormat" : "JWT",
+        "description" : "소셜 로그인 후 가입 대기 시 받은 Registration Token. 본인인증 API 전용",
+        "scheme" : "bearer",
+        "type" : "http"
+      }
+    }
+  },
+  "info" : {
+    "description" : "MOGU 서비스의 API 계약입니다.",
+    "title" : "MOGU API",
+    "version" : "v1"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/api/auth/identity-verification" : {
+      "post" : {
+        "description" : "가입 대기 토큰과 연결된 본인인증 결과로 가입하거나 기존 계정에 로그인 방식을 연결한다. newMember가 true이면 프로필 입력 화면으로 이동한다.",
+        "operationId" : "verify",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IdentityVerificationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IdentityVerificationResponse"
+                }
+              }
+            },
+            "description" : "본인인증 및 로그인 성공"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "입력값 오류 (COMMON_INVALID_INPUT); 본인인증 정보 확인 실패 (AUTH_INVALID_IDENTITY_VERIFICATION)"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "인증이 필요하거나 토큰이 유효하지 않음 (AUTH_UNAUTHORIZED)"
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "이용이 제한된 계정 (AUTH_ACCOUNT_SANCTIONED)"
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "같은 로그인 방식의 다른 계정이 이미 연결됨 (AUTH_PROVIDER_ALREADY_LINKED)"
+          }
+        },
+        "security" : [
+          {
+            "registrationToken" : [ ]
+          }
+        ],
+        "summary" : "본인인증으로 가입 완료",
+        "tags" : [
+          "본인인증"
+        ]
+      }
+    },
+    "/api/auth/login/{provider}" : {
+      "post" : {
+        "description" : "응답의 registrationRequired가 true이면 본인인증으로 가입을 마쳐야 한다.",
+        "operationId" : "login",
+        "parameters" : [
+          {
+            "description" : "소셜 로그인 제공자",
+            "example" : "kakao",
+            "in" : "path",
+            "name" : "provider",
+            "required" : true,
+            "schema" : {
+              "enum" : [
+                "kakao",
+                "google"
+              ],
+              "type" : "string"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description" : "로그인 성공 또는 가입 대기"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "지원하지 않는 로그인 방식 (AUTH_UNSUPPORTED_PROVIDER); 입력값 오류 (COMMON_INVALID_INPUT)"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "소셜 로그인 정보 확인 실패 (AUTH_INVALID_SOCIAL_TOKEN)"
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "이용이 제한된 계정 (AUTH_ACCOUNT_SANCTIONED)"
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "소셜 로그인 서비스 일시 장애 (AUTH_PROVIDER_UNAVAILABLE)"
+          }
+        },
+        "security" : [ ],
+        "summary" : "소셜 로그인",
+        "tags" : [
+          "인증"
+        ]
+      }
+    },
+    "/api/auth/logout" : {
+      "post" : {
+        "description" : "로그인 묶음 전체를 폐기한다. 토큰이나 본문이 없거나 잘못되어도 응답은 항상 204이다.",
+        "operationId" : "logout",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LogoutRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "204" : {
+            "description" : "로그아웃 처리 완료"
+          }
+        },
+        "security" : [ ],
+        "summary" : "로그아웃",
+        "tags" : [
+          "인증"
+        ]
+      }
+    },
+    "/api/auth/me/account" : {
+      "get" : {
+        "description" : "계정의 이름, 마스킹된 휴대폰 번호와 연결된 로그인 방식을 조회한다.",
+        "operationId" : "account",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountInfoResponse"
+                }
+              }
+            },
+            "description" : "내 계정 정보 조회 성공"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "인증이 필요하거나 토큰이 유효하지 않음 (AUTH_UNAUTHORIZED)"
+          }
+        },
+        "summary" : "내 계정 정보 조회",
+        "tags" : [
+          "내 정보"
+        ]
+      }
+    },
+    "/api/auth/mock-identity-verifications" : {
+      "post" : {
+        "description" : "local/test 프로파일 전용. 운영에는 없다. outcome을 생략하면 VERIFIED로 처리한다.",
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MockIdentityVerificationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MockIdentityVerificationResponse"
+                }
+              }
+            },
+            "description" : "Mock 본인인증 결과 생성 성공"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "입력값 오류 (COMMON_INVALID_INPUT)"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "인증이 필요하거나 토큰이 유효하지 않음 (AUTH_UNAUTHORIZED)"
+          }
+        },
+        "security" : [
+          {
+            "registrationToken" : [ ]
+          }
+        ],
+        "summary" : "Mock 본인인증 결과 생성",
+        "tags" : [
+          "본인인증"
+        ]
+      }
+    },
+    "/api/auth/nonce" : {
+      "post" : {
+        "description" : "소셜 로그인 요청 전에 발급받아 ID Token의 nonce로 사용한다.",
+        "operationId" : "issue",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NonceResponse"
+                }
+              }
+            },
+            "description" : "nonce 발급 성공"
+          }
+        },
+        "security" : [ ],
+        "summary" : "로그인용 nonce 발급",
+        "tags" : [
+          "인증"
+        ]
+      }
+    },
+    "/api/auth/refresh" : {
+      "post" : {
+        "description" : "앱은 refresh 요청을 동시에 보내지 않는다. 이미 쓴 토큰을 다시 보내면 그 로그인 묶음 전체가 폐기된다.",
+        "operationId" : "refresh",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RefreshResponse"
+                }
+              }
+            },
+            "description" : "토큰 갱신 성공"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "입력값 오류 (COMMON_INVALID_INPUT)"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Refresh Token이 유효하지 않음 (AUTH_INVALID_REFRESH_TOKEN)"
+          }
+        },
+        "security" : [ ],
+        "summary" : "로그인 토큰 갱신",
+        "tags" : [
+          "인증"
+        ]
+      }
+    },
+    "/api/members/me" : {
+      "get" : {
+        "operationId" : "getMyProfile",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "memberId",
+            "required" : true,
+            "schema" : {
+              "$ref" : "#/components/schemas/MemberId"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MyProfileResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "member-profile-controller"
+        ]
+      },
+      "put" : {
+        "operationId" : "updateMyProfile",
+        "parameters" : [
+          {
+            "in" : "query",
+            "name" : "memberId",
+            "required" : true,
+            "schema" : {
+              "$ref" : "#/components/schemas/MemberId"
+            }
+          }
+        ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateMyProfileRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MyProfileResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "member-profile-controller"
+        ]
+      }
+    },
+    "/api/members/{memberId}" : {
+      "get" : {
+        "operationId" : "getPublicProfile",
+        "parameters" : [
+          {
+            "in" : "path",
+            "name" : "memberId",
+            "required" : true,
+            "schema" : {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PublicProfileResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [
+          "member-profile-controller"
+        ]
+      }
+    }
+  },
+  "security" : [
+    {
+      "accessToken" : [ ]
+    }
+  ],
+  "servers" : [
+    {
+      "url" : "/"
+    }
+  ]
+}

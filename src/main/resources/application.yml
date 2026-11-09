@@ -73,3 +73,13 @@ mogu:
       secret: ${AUTH_NONCE_SECRET:}
       ttl: 5m
       ephemeral-secret-allowed: false
+
+springdoc:
+  paths-to-match: /api/**
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+  writer-with-order-by-keys: true
+  writer-with-default-pretty-printer: true
+  override-with-generic-response: false

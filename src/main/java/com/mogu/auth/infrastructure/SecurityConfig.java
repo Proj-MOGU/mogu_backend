@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -56,20 +58,27 @@ public class SecurityConfig {
             MemberAuthenticationConverter converter,
             JsonAuthenticationEntryPoint entryPoint,
             DefaultBearerTokenResolver resolver,
-            @Qualifier("jwtDecoder") JwtDecoder decoder)
+            @Qualifier("jwtDecoder") JwtDecoder decoder,
+            Environment environment)
             throws Exception {
         return common(http, entryPoint)
-                .authorizeHttpRequests(a -> a.requestMatchers(
-                                HttpMethod.POST,
-                                "/api/auth/nonce",
-                                "/api/auth/login/*",
-                                "/api/auth/refresh",
-                                "/api/auth/logout")
-                        .permitAll()
-                        .requestMatchers("/actuator/health")
-                        .permitAll()
-                        .anyRequest()
-                        .authenticated())
+                .authorizeHttpRequests(a -> {
+                    if (environment.acceptsProfiles(Profiles.of("local", "dev"))) {
+                        a.requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**")
+                                .permitAll();
+                    }
+                    a.requestMatchers(
+                                    HttpMethod.POST,
+                                    "/api/auth/nonce",
+                                    "/api/auth/login/*",
+                                    "/api/auth/refresh",
+                                    "/api/auth/logout")
+                            .permitAll()
+                            .requestMatchers("/actuator/health")
+                            .permitAll()
+                            .anyRequest()
+                            .authenticated();
+                })
                 .oauth2ResourceServer(o -> o.jwt(j -> j.decoder(decoder).jwtAuthenticationConverter(converter))
                         .authenticationEntryPoint(entryPoint)
                         .bearerTokenResolver(resolver))
