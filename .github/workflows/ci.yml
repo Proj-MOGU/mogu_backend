@@ -36,3 +36,14 @@ jobs:
 
       - name: Check formatting and build
         run: ./gradlew spotlessCheck build --no-daemon
+
+      - name: Check OpenAPI spec is up to date
+        run: |
+          git diff --exit-code -- openapi/openapi.json || {
+            echo "openapi/openapi.json 이 코드와 다릅니다. ./gradlew test 후 파일을 커밋하세요"
+            exit 1
+          }
+          test -z "$(git ls-files --others --exclude-standard -- openapi/openapi.json)" || {
+            echo "생성된 openapi/openapi.json 을 커밋하세요"
+            exit 1
+          }

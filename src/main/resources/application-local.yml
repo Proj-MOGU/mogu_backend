@@ -18,3 +18,9 @@ mogu:
       ephemeral-key-allowed: true
     nonce:
       ephemeral-secret-allowed: true
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
