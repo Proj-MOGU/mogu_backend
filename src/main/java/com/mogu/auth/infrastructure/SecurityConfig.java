@@ -59,7 +59,12 @@ public class SecurityConfig {
             @Qualifier("jwtDecoder") JwtDecoder decoder)
             throws Exception {
         return common(http, entryPoint)
-                .authorizeHttpRequests(a -> a.requestMatchers(HttpMethod.POST, "/api/auth/nonce", "/api/auth/login/*")
+                .authorizeHttpRequests(a -> a.requestMatchers(
+                                HttpMethod.POST,
+                                "/api/auth/nonce",
+                                "/api/auth/login/*",
+                                "/api/auth/refresh",
+                                "/api/auth/logout")
                         .permitAll()
                         .requestMatchers("/actuator/health")
                         .permitAll()

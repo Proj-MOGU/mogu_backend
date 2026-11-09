@@ -1,5 +1,7 @@
 mogu:
   auth:
+    refresh-token:
+      cleanup-interval: P365D
     di:
       ephemeral-pepper-allowed: true
     mock-identity:
