@@ -52,8 +52,31 @@ class LoginMemberSupportTest {
         result.andExpect(status().isOk()).andExpect(content().string("00000000-0000-7000-8000-000000000002"));
     }
 
+    @Test
+    @DisplayName("테스트 애노테이션으로 공통 계약에서도 같은 회원 ID를 조회한다")
+    @WithLoginMember("00000000-0000-7000-8000-000000000002")
+    void annotationExposesCurrentMember() throws Exception {
+        // given
+        var request = get("/test/current-member-support");
+        // when
+        var result = mvc.perform(request);
+        // then
+        result.andExpect(status().isOk()).andExpect(content().string("00000000-0000-7000-8000-000000000002"));
+    }
+
     @RestController
     static class DummyController {
+        private final CurrentMember currentMember;
+
+        DummyController(CurrentMember currentMember) {
+            this.currentMember = currentMember;
+        }
+
+        @GetMapping("/test/current-member-support")
+        String current() {
+            return currentMember.find().orElseThrow().toString();
+        }
+
         @GetMapping("/test/member-support")
         String me(@LoginMember MemberId memberId) {
             return memberId.toString();
