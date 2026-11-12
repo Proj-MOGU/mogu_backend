@@ -65,6 +65,21 @@ class OpenApiSpecTest {
             assertThat(spec.path("paths").path("/api/auth/" + path).path("post").path("security"))
                     .isEqualTo(json.readTree("[{\"registrationToken\":[]}]"));
         }
+        for (String path : List.of(
+                "nonce",
+                "login/{provider}",
+                "refresh",
+                "logout",
+                "identity-verification",
+                "mock-identity-verifications")) {
+            var limited = spec.path("paths")
+                    .path("/api/auth/" + path)
+                    .path("post")
+                    .path("responses")
+                    .path("429");
+            assertThat(limited.path("description").asText()).contains("AUTH_TOO_MANY_REQUESTS");
+            assertThat(limited.path("headers").has("Retry-After")).isTrue();
+        }
         assertThat(spec.path("security")).isEqualTo(json.readTree("[{\"accessToken\":[]}]"));
         JsonNode account = spec.path("paths").path("/api/auth/me/account").path("get");
         assertThat(account.isMissingNode()).isFalse();

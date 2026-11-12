@@ -10,6 +10,6 @@ import org.springframework.stereotype.Component;
 public class GoogleLoginAdapter extends OidcSocialLoginAdapter {
     public GoogleLoginAdapter(
             OidcProviderProperties properties, @Qualifier("authClock") Clock clock, Environment environment) {
-        super(AuthProvider.GOOGLE, properties.google(), clock, environment);
+        super(AuthProvider.GOOGLE, properties.google(), properties.jwksRefreshMinInterval(), clock, environment);
     }
 }

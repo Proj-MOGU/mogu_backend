@@ -4,6 +4,7 @@ import com.mogu.auth.application.MockIdentityVerificationCreator;
 import com.mogu.common.error.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -37,6 +38,15 @@ public class MockIdentityVerificationController {
     @ApiResponse(
             responseCode = "401",
             description = "인증이 필요하거나 토큰이 유효하지 않음 (AUTH_UNAUTHORIZED)",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(
+            responseCode = "429",
+            description = "요청이 너무 많음 (AUTH_TOO_MANY_REQUESTS)",
+            headers =
+                    @Header(
+                            name = "Retry-After",
+                            description = "재시도까지 대기할 초 (정수, 올림)",
+                            schema = @Schema(type = "integer")),
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
     @PostMapping("/api/auth/mock-identity-verifications")
     public ResponseEntity<MockIdentityVerificationResponse> create(

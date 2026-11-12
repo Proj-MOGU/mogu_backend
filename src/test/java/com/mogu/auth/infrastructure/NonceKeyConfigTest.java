@@ -114,7 +114,9 @@ class NonceKeyConfigTest {
     void commaSeparatedAudiencesBind() {
         // given / when / then
         socialRunner()
-                .withPropertyValues("mogu.auth.social.kakao.audiences=first,second")
+                .withPropertyValues(
+                        "mogu.auth.social.kakao.audiences=first,second",
+                        "mogu.auth.social.jwks-refresh-min-interval=12s")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     var properties =
@@ -122,6 +124,8 @@ class NonceKeyConfigTest {
                     assertThat(properties.audiences()).containsExactly("first", "second");
                     assertThat(properties.connectTimeout()).hasSeconds(2);
                     assertThat(properties.readTimeout()).hasSeconds(3);
+                    assertThat(context.getBean(OidcProviderProperties.class).jwksRefreshMinInterval())
+                            .hasSeconds(12);
                 });
     }
 

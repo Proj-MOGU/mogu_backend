@@ -29,6 +29,36 @@ logging:
 
 mogu:
   auth:
+    rate-limit:
+      query-timeout: 200ms
+      cleanup-interval: PT10M
+      rules:
+        login-requests:
+          limit: 50
+          window: 1m
+        login-failures:
+          limit: 100
+          window: 1d
+          refill-interval: 15m
+        nonce-requests:
+          limit: 50
+          window: 1m
+        refresh-requests:
+          limit: 4
+          window: 1s
+        refresh-failures:
+          limit: 100
+          window: 1d
+          refill-interval: 15m
+        logout-requests:
+          limit: 4
+          window: 1s
+        identity-requests:
+          limit: 4
+          window: 1s
+        identity-failures:
+          limit: 10
+          window: 1d
     pii:
       encryption-keys: ${AUTH_PII_ENCRYPTION_KEYS:}
       active-key-version: ${AUTH_PII_ACTIVE_KEY_VERSION:1}
@@ -61,6 +91,7 @@ mogu:
         private-key-pem: ${REGISTRATION_SIGNING_PRIVATE_KEY:}
         public-key-pem: ${REGISTRATION_SIGNING_PUBLIC_KEY:}
     social:
+      jwks-refresh-min-interval: 30s
       kakao:
         issuers: [https://kauth.kakao.com]
         jwk-set-uri: https://kauth.kakao.com/.well-known/jwks.json

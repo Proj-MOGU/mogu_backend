@@ -6,5 +6,5 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @Configuration(proxyBeanMethods = false)
 @EnableScheduling
-@EnableConfigurationProperties(OidcProviderProperties.class)
+@EnableConfigurationProperties({OidcProviderProperties.class, RateLimitProperties.class})
 public class SocialAuthConfig {}

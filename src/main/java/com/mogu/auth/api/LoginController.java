@@ -5,6 +5,7 @@ import com.mogu.auth.domain.AuthProvider;
 import com.mogu.common.error.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -45,6 +46,15 @@ public class LoginController {
     @ApiResponse(
             responseCode = "503",
             description = "소셜 로그인 서비스 일시 장애 (AUTH_PROVIDER_UNAVAILABLE)",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(
+            responseCode = "429",
+            description = "요청이 너무 많음 (AUTH_TOO_MANY_REQUESTS)",
+            headers =
+                    @Header(
+                            name = "Retry-After",
+                            description = "재시도까지 대기할 초 (정수, 올림)",
+                            schema = @Schema(type = "integer")),
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
     @PostMapping("/api/auth/login/{provider}")
     public ResponseEntity<LoginResponse> login(
