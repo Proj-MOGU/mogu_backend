@@ -5,6 +5,7 @@ import com.mogu.auth.domain.SocialIdentity;
 import com.mogu.common.error.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -46,6 +47,15 @@ public class IdentityVerificationController {
     @ApiResponse(
             responseCode = "409",
             description = "같은 로그인 방식의 다른 계정이 이미 연결됨 (AUTH_PROVIDER_ALREADY_LINKED)",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(
+            responseCode = "429",
+            description = "요청이 너무 많음 (AUTH_TOO_MANY_REQUESTS)",
+            headers =
+                    @Header(
+                            name = "Retry-After",
+                            description = "재시도까지 대기할 초 (정수, 올림)",
+                            schema = @Schema(type = "integer")),
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
     @PostMapping("/api/auth/identity-verification")
     public ResponseEntity<IdentityVerificationResponse> verify(

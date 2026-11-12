@@ -1,5 +1,9 @@
 package com.mogu.auth.infrastructure;
 
+import com.mogu.auth.application.RateLimiter;
+import javax.sql.DataSource;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,10 +16,35 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import tools.jackson.databind.json.JsonMapper;
 
+/**
+ * DB 없는 슬라이스에서는 RateLimiter 빈이 없으면 횟수 제한 필터를 등록하지 않는다.
+ * DataSource 빈이 있는 환경에서는 RateLimiter 누락으로 제한이 조용히 꺼지지 않도록 기동에 실패한다.
+ */
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfig {
+    private final ObjectProvider<RateLimiter> limiter;
+    private final JsonMapper mapper;
+
+    public SecurityConfig(ObjectProvider<RateLimiter> limiter, JsonMapper mapper) {
+        this.limiter = limiter;
+        this.mapper = mapper;
+    }
+
+    @Bean
+    SmartInitializingSingleton requireRateLimiterWithDataSource(ObjectProvider<DataSource> dataSources) {
+        return () -> {
+            if (dataSources.stream().findAny().isPresent() && limiter.getIfAvailable() == null) {
+                throw new IllegalStateException(
+                        "DataSource bean exists but RateLimiter bean is missing; authentication rate limiting"
+                                + " must be configured");
+            }
+        };
+    }
+
     @Bean
     DefaultBearerTokenResolver bearerTokenResolver() {
         var resolver = new DefaultBearerTokenResolver();
@@ -42,6 +71,8 @@ public class SecurityConfig {
             DefaultBearerTokenResolver resolver,
             @Qualifier("registrationJwtDecoder") JwtDecoder decoder)
             throws Exception {
+        limiter.ifAvailable(rateLimiter -> http.addFilterAfter(
+                new AuthRateLimitFilter(rateLimiter, mapper), BearerTokenAuthenticationFilter.class));
         return common(http, entryPoint)
                 .securityMatcher("/api/auth/identity-verification", "/api/auth/mock-identity-verifications")
                 .authorizeHttpRequests(a -> a.anyRequest().authenticated())
@@ -61,6 +92,8 @@ public class SecurityConfig {
             @Qualifier("jwtDecoder") JwtDecoder decoder,
             Environment environment)
             throws Exception {
+        limiter.ifAvailable(rateLimiter -> http.addFilterBefore(
+                new AuthRateLimitFilter(rateLimiter, mapper), BearerTokenAuthenticationFilter.class));
         return common(http, entryPoint)
                 .authorizeHttpRequests(a -> {
                     if (environment.acceptsProfiles(Profiles.of("local", "dev"))) {

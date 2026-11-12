@@ -6,7 +6,17 @@ import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("mogu.auth.social")
-public record OidcProviderProperties(Provider kakao, Provider google) {
+public record OidcProviderProperties(Provider kakao, Provider google, Duration jwksRefreshMinInterval) {
+    @org.springframework.boot.context.properties.bind.ConstructorBinding
+    public OidcProviderProperties {
+        jwksRefreshMinInterval = jwksRefreshMinInterval == null ? Duration.ofSeconds(30) : jwksRefreshMinInterval;
+        if (jwksRefreshMinInterval.toMillis() < 1) throw new IllegalArgumentException("jwks-refresh-min-interval");
+    }
+
+    public OidcProviderProperties(Provider kakao, Provider google) {
+        this(kakao, google, Duration.ofSeconds(30));
+    }
+
     public record Provider(
             List<String> issuers,
             URI jwkSetUri,

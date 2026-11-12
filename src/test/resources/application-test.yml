@@ -1,5 +1,35 @@
 mogu:
   auth:
+    rate-limit:
+      query-timeout: 200ms
+      cleanup-interval: P365D
+      rules:
+        login-requests:
+          limit: 1000000
+          window: 1m
+        login-failures:
+          limit: 1000000
+          window: 1d
+          refill-interval: 15m
+        nonce-requests:
+          limit: 1000000
+          window: 1m
+        refresh-requests:
+          limit: 1000000
+          window: 1s
+        refresh-failures:
+          limit: 1000000
+          window: 1d
+          refill-interval: 15m
+        logout-requests:
+          limit: 1000000
+          window: 1s
+        identity-requests:
+          limit: 1000000
+          window: 1s
+        identity-failures:
+          limit: 1000000
+          window: 1d
     pii:
       ephemeral-key-allowed: true
     refresh-token:

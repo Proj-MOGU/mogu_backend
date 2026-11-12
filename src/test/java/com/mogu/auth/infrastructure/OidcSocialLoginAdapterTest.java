@@ -193,7 +193,54 @@ class OidcSocialLoginAdapterTest {
         var identity = adapter.verify(fake.sign(claims().build()));
         // then
         assertThat(identity.subject()).isEqualTo("subject");
-        assertThat(fake.requests()).isGreaterThan(before);
+        assertThat(fake.requests()).isEqualTo(before + 1);
+    }
+
+    @Test
+    @DisplayName("모르는 kid 100개는 모두 401이고 추가 JWKS 조회는 한 번 이하이다")
+    void limitsUnknownKeyFlood() throws Exception {
+        // given
+        var adapter = adapter();
+        adapter.verify(fake.sign(claims().build()));
+        var unknown = new RSAKeyGenerator(2048).keyID("unknown").generate();
+        int before = fake.requests();
+        // when
+        for (int i = 0; i < 100; i++) {
+            var key = new com.nimbusds.jose.jwk.RSAKey.Builder(unknown)
+                    .keyID("unknown-" + i)
+                    .build();
+            rejected(adapter, FakeOidcProvider.sign(claims().build(), key), AuthErrorCode.INVALID_SOCIAL_TOKEN);
+        }
+        // then
+        assertThat(fake.requests() - before).isBetween(0, 1);
+    }
+
+    @Test
+    @DisplayName("Nimbus의 다음 허용 시각을 지난 뒤 모르는 kid를 다시 조회할 수 있다")
+    void refreshesAfterRateLimitInterval() throws Exception {
+        // given
+        var adapter = adapter();
+        adapter.verify(fake.sign(claims().build()));
+        String unknown = FakeOidcProvider.sign(
+                claims().build(), new RSAKeyGenerator(2048).keyID("unknown").generate());
+        rejected(adapter, unknown, AuthErrorCode.INVALID_SOCIAL_TOKEN);
+        rejected(adapter, unknown, AuthErrorCode.INVALID_SOCIAL_TOKEN);
+        int before = fake.requests();
+        // when: 대기 없이 Nimbus의 시간 경계만 이동한다.
+        var decoder = org.springframework.test.util.ReflectionTestUtils.getField(adapter, "decoder");
+        var processor = (com.nimbusds.jwt.proc.DefaultJWTProcessor<?>)
+                org.springframework.test.util.ReflectionTestUtils.getField(decoder, "jwtProcessor");
+        var selector = (com.nimbusds.jose.proc.JWSVerificationKeySelector<?>) processor.getJWSKeySelector();
+        var source = ((com.nimbusds.jose.jwk.source.JWKSetBasedJWKSource<?>) selector.getJWKSource()).getJWKSetSource();
+        while (!(source instanceof com.nimbusds.jose.jwk.source.RateLimitedJWKSetSource<?>)) {
+            source = ((com.nimbusds.jose.jwk.source.JWKSetSourceWrapper<?>) source).getSource();
+        }
+        assertThat(((com.nimbusds.jose.jwk.source.RateLimitedJWKSetSource<?>) source).getMinTimeInterval())
+                .isEqualTo(30_000);
+        org.springframework.test.util.ReflectionTestUtils.setField(source, "nextOpeningTime", 0L);
+        rejected(adapter, unknown, AuthErrorCode.INVALID_SOCIAL_TOKEN);
+        // then
+        assertThat(fake.requests()).isEqualTo(before + 1);
     }
 
     @Test
@@ -261,7 +308,7 @@ class OidcSocialLoginFailureClassificationTest {
     @ValueSource(booleans = {false, true})
     @DisplayName("JWKS 재조회 제한에 걸린 모르는 kid 토큰은 401로 분류한다")
     void unknownKeyRateLimitIsInvalidToken(boolean wrapped) {
-        // given: Spring의 기본 JWKS 소스는 rateLimited(false)이므로 예외 체인을 직접 구성한다.
+        // given: 중첩 여부와 무관하게 제한 예외를 401로 분류한다.
         var rateLimit = new RateLimitReachedException();
         var failure = new JwtException(
                 "JWKS refresh rate limit",

@@ -1,6 +1,7 @@
 package com.mogu.common.error;
 
 import com.mogu.common.trace.TraceIdFilter;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -17,11 +18,14 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    public static final String ERROR_CODE_ATTRIBUTE = GlobalExceptionHandler.class.getName() + ".errorCode";
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException exception) {
+    public ResponseEntity<ErrorResponse> handleBusinessException(
+            BusinessException exception, HttpServletRequest request) {
         ErrorCode errorCode = exception.errorCode();
+        request.setAttribute(ERROR_CODE_ATTRIBUTE, errorCode.code());
         log.warn("{}", errorCode.code());
         return ResponseEntity.status(errorCode.status()).body(ErrorResponse.of(errorCode));
     }

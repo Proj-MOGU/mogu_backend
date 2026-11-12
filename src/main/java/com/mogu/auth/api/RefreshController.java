@@ -6,6 +6,7 @@ import com.mogu.auth.domain.AuthErrorCode;
 import com.mogu.common.error.BusinessException;
 import com.mogu.common.error.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -37,6 +38,15 @@ public class RefreshController {
     @ApiResponse(
             responseCode = "401",
             description = "Refresh Token이 유효하지 않음 (AUTH_INVALID_REFRESH_TOKEN)",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(
+            responseCode = "429",
+            description = "요청이 너무 많음 (AUTH_TOO_MANY_REQUESTS)",
+            headers =
+                    @Header(
+                            name = "Retry-After",
+                            description = "재시도까지 대기할 초 (정수, 올림)",
+                            schema = @Schema(type = "integer")),
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
     @PostMapping("/api/auth/refresh")
     public ResponseEntity<RefreshResponse> refresh(@Valid @RequestBody RefreshRequest request) {

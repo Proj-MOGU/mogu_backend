@@ -10,6 +10,6 @@ import org.springframework.stereotype.Component;
 public class KakaoLoginAdapter extends OidcSocialLoginAdapter {
     public KakaoLoginAdapter(
             OidcProviderProperties properties, @Qualifier("authClock") Clock clock, Environment environment) {
-        super(AuthProvider.KAKAO, properties.kakao(), clock, environment);
+        super(AuthProvider.KAKAO, properties.kakao(), properties.jwksRefreshMinInterval(), clock, environment);
     }
 }
