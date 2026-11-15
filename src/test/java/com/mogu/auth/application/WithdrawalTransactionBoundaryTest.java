@@ -101,8 +101,9 @@ class WithdrawalTransactionBoundaryTest {
                 .isInstanceOfSatisfying(
                         BusinessException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(AuthErrorCode.REAUTHENTICATION_FAILED));
-        assertThat(transactions.committed).isEqualTo(1);
+        assertThat(transactions.committed).isEqualTo(2);
         assertThat(transactions.rolledBack).isEqualTo(1);
+        verify(accounts, times(2)).findByMemberId(id);
         assertThat(TransactionSynchronizationManager.isActualTransactionActive())
                 .isFalse();
         verify(accounts, never()).save(any());

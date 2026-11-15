@@ -79,6 +79,57 @@ class WithdrawalServiceTest {
         assertError(expected);
     }
 
+    @ParameterizedTest
+    @EnumSource(
+            value = AuthErrorCode.class,
+            names = {"INVALID_SOCIAL_TOKEN", "REAUTHENTICATION_FAILED"})
+    @DisplayName("재인증 실패 뒤 재조회에서 이미 탈퇴했으면 정상 종료한다")
+    void reauthenticationFailureIsIdempotentAfterConcurrentWithdrawal(AuthErrorCode error) {
+        // given
+        when(accounts.isWithdrawn(id)).thenReturn(false, true);
+        when(verification.verifyToken(AuthProvider.KAKAO, "token")).thenReturn(verified);
+        when(completion.withdraw(id, verified)).thenThrow(new BusinessException(error));
+        // when / then
+        assertThatCode(() -> service.withdraw(id, AuthProvider.KAKAO, "token")).doesNotThrowAnyException();
+        var order = inOrder(accounts, completion);
+        order.verify(accounts).isWithdrawn(id);
+        order.verify(completion).withdraw(id, verified);
+        order.verify(accounts).isWithdrawn(id);
+        verify(accounts, times(2)).isWithdrawn(id);
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = AuthErrorCode.class,
+            names = {"INVALID_SOCIAL_TOKEN", "REAUTHENTICATION_FAILED"})
+    @DisplayName("재인증 실패 뒤에도 탈퇴하지 않았으면 403을 유지한다")
+    void reauthenticationFailureRemainsForbiddenForActiveAccount(AuthErrorCode error) {
+        // given
+        when(accounts.isWithdrawn(id)).thenReturn(false);
+        when(verification.verifyToken(AuthProvider.KAKAO, "token")).thenReturn(verified);
+        when(completion.withdraw(id, verified)).thenThrow(new BusinessException(error));
+        // when / then
+        assertError(AuthErrorCode.REAUTHENTICATION_FAILED);
+        verify(accounts, times(2)).isWithdrawn(id);
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = AuthErrorCode.class,
+            names = {"UNSUPPORTED_PROVIDER", "PROVIDER_UNAVAILABLE", "ACCOUNT_SANCTIONED", "UNAUTHORIZED"})
+    @DisplayName("입력과 공급자 장애 및 제재 오류에는 탈퇴 상태를 재확인하지 않는다")
+    void otherErrorsDoNotRecheckWithdrawal(AuthErrorCode error) {
+        // given
+        when(accounts.isWithdrawn(id)).thenReturn(false, true);
+        when(verification.verifyToken(AuthProvider.KAKAO, "token")).thenReturn(verified);
+        var failure = new BusinessException(error);
+        when(completion.withdraw(id, verified)).thenThrow(failure);
+        // when / then
+        assertThatThrownBy(() -> service.withdraw(id, AuthProvider.KAKAO, "token"))
+                .isSameAs(failure);
+        verify(accounts).isWithdrawn(id);
+    }
+
     private void assertError(AuthErrorCode error) {
         assertThatThrownBy(() -> service.withdraw(id, AuthProvider.KAKAO, "token"))
                 .isInstanceOfSatisfying(

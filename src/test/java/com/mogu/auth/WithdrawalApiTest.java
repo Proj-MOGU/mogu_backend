@@ -16,6 +16,11 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,7 +29,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.convention.TestBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -35,6 +43,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
+@Import(WithdrawalApiTest.Withdrawals.class)
 @RecordApplicationEvents
 @ExtendWith(OutputCaptureExtension.class)
 @TestPropertySource(
@@ -58,6 +67,9 @@ class WithdrawalApiTest extends IdentityIntegrationSupport {
     private ApplicationEvents events;
 
     @Autowired
+    private Withdrawals withdrawals;
+
+    @Autowired
     WithdrawalApiTest(
             MockMvc mvc, JdbcClient jdbc, NonceService nonces, @Qualifier("authClock") Clock clock, JsonMapper json) {
         super(mvc, jdbc, nonces, clock, json);
@@ -66,6 +78,7 @@ class WithdrawalApiTest extends IdentityIntegrationSupport {
     @BeforeEach
     void resetLimits() {
         ((MutableAuthClock) clock).reset();
+        withdrawals.count.set(0);
         jdbc.sql("TRUNCATE auth_rate_limit_window, auth_rate_limit_bucket, auth_rate_limit_streak")
                 .update();
     }
@@ -239,6 +252,80 @@ class WithdrawalApiTest extends IdentityIntegrationSupport {
                 .contains("withdrawal-redaction-marker")
                 .doesNotContain(valid, invalid, subject, email);
         assertThat(new WithdrawalRequest("kakao", valid).toString()).doesNotContain(valid);
+    }
+
+    @Test
+    @DisplayName("같은 nonce의 동시 탈퇴 요청 두 건은 모두 204이고 이벤트는 한 번 발행한다")
+    void concurrentWithdrawalWithSameNonceIsIdempotent() throws Exception {
+        // given
+        account("same-nonce", AccountStatus.ACTIVE, null);
+        String access = successfulLogin("same-nonce").get("accessToken").asText();
+        String reauth = reauthToken("same-nonce");
+        var verified = new CountDownLatch(2);
+        var start = new CountDownLatch(1);
+        doAnswer(call -> {
+                    var identity = call.callRealMethod();
+                    verified.countDown();
+                    if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Start timeout");
+                    return identity;
+                })
+                .when(socialVerification)
+                .verifyToken(AuthProvider.KAKAO, reauth);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            java.util.concurrent.Callable<MockHttpServletResponse> request =
+                    () -> withdraw(access, "kakao", reauth).andReturn().getResponse();
+            var first = executor.submit(request);
+            var second = executor.submit(request);
+            // when
+            try {
+                assertThat(verified.await(10, TimeUnit.SECONDS)).isTrue();
+            } finally {
+                start.countDown();
+            }
+            var responses = List.of(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS));
+            // then
+            assertThat(responses).extracting(MockHttpServletResponse::getStatus).containsExactly(204, 204);
+        }
+        assertThat(withdrawals.count.get()).isEqualTo(1);
+        assertThat(jdbc.sql("SELECT status FROM auth_account")
+                        .query(String.class)
+                        .single())
+                .isEqualTo("WITHDRAWN");
+        assertThat(count("auth_social_identity")).isZero();
+    }
+
+    @Test
+    @DisplayName("만료된 nonce로 탈퇴하면 유효한 ID Token이어도 재인증 실패 403이다")
+    void rejectsExpiredNonce() throws Exception {
+        // given
+        account("expired-nonce", AccountStatus.ACTIVE, null);
+        String access = successfulLogin("expired-nonce").get("accessToken").asText();
+        var expired = nonces.issue();
+        ((MutableAuthClock) clock)
+                .advance(Duration.between(clock.instant(), expired.expiresAt()).plusNanos(1000));
+        String validTokenWithExpiredNonce = fake.sign(
+                new JWTClaimsSet.Builder(SignedJWT.parse(token("expired-nonce")).getJWTClaimsSet())
+                        .claim("nonce", expired.value())
+                        .build());
+        long usedNonces = count("auth_used_nonce");
+        // when / then
+        forbidden(access, "kakao", validTokenWithExpiredNonce);
+        assertThat(jdbc.sql("SELECT status FROM auth_account")
+                        .query(String.class)
+                        .single())
+                .isEqualTo("ACTIVE");
+        assertThat(count("auth_social_identity")).isEqualTo(1);
+        assertThat(count("auth_used_nonce")).isEqualTo(usedNonces);
+        assertThat(events.stream(MemberWithdrawn.class)).isEmpty();
+    }
+
+    public static class Withdrawals {
+        final AtomicInteger count = new AtomicInteger();
+
+        @EventListener
+        public void withdrawn(MemberWithdrawn ignored) {
+            count.incrementAndGet();
+        }
     }
 
     private String reauthToken(String subject) throws Exception {

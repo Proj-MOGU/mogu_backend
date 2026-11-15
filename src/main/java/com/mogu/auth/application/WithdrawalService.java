@@ -27,9 +27,14 @@ public class WithdrawalService {
             var verified = verification.verifyToken(provider, idToken);
             completion.withdraw(memberId, verified);
         } catch (BusinessException exception) {
-            if (exception.errorCode() == AuthErrorCode.INVALID_SOCIAL_TOKEN)
-                throw new BusinessException(AuthErrorCode.REAUTHENTICATION_FAILED);
-            throw exception;
+            var failure = exception.errorCode() == AuthErrorCode.INVALID_SOCIAL_TOKEN
+                    ? new BusinessException(AuthErrorCode.REAUTHENTICATION_FAILED)
+                    : exception;
+            if (failure.errorCode() == AuthErrorCode.REAUTHENTICATION_FAILED) {
+                // 동시에 들어온 같은 요청이 먼저 탈퇴를 끝낸 경우 멱등하게 204
+                if (accounts.isWithdrawn(memberId)) return;
+            }
+            throw failure;
         }
     }
 }

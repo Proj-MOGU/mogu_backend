@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.mogu.auth.application.*;
 import com.mogu.auth.domain.*;
+import com.mogu.auth.infrastructure.AesGcmPiiCipher;
 import com.mogu.auth.support.IdentityIntegrationSupport;
 import com.mogu.auth.support.MutableAuthClock;
 import com.mogu.common.auth.MemberId;
@@ -13,7 +14,9 @@ import com.mogu.common.error.BusinessException;
 import com.mogu.common.event.*;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -22,6 +25,8 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
@@ -319,6 +324,81 @@ class WithdrawalIntegrationTest extends IdentityIntegrationSupport {
         assertThat(events.registered).hasSize(1);
         assertThat(events.registered.getFirst().memberId()).isNotEqualTo(old);
         assertThat(count("auth_account")).isEqualTo(2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("정확히 30일 뒤 또는 배치 정리 뒤에는 같은 DI로 새 회원이 가입한다")
+    void rejoinsAtExactBoundaryOrAfterCleanup(boolean runCleanup) throws Exception {
+        // given
+        register("kakao", "returning", PHONE_A);
+        var old = member();
+        withdrawals.withdraw(old, reauth("returning"));
+        ((MutableAuthClock) clock).advance(Duration.ofDays(runCleanup ? 31 : 30));
+        if (runCleanup) {
+            cleanup.cleanup();
+            assertThat(load(old).diHash()).isNull();
+        } else {
+            assertThat(load(old).diHash()).isNotNull();
+        }
+        events.registered.clear();
+        // when
+        register("kakao", "returning", PHONE_A);
+        // then
+        assertThat(events.registered).hasSize(1);
+        var newMember = events.registered.getFirst().memberId();
+        assertThat(newMember).isNotEqualTo(old);
+        assertThat(load(newMember).status()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(load(newMember).diHash()).isNotNull();
+        assertThat(load(old).status()).isEqualTo(AccountStatus.WITHDRAWN);
+        assertThat(load(old).diHash()).isNull();
+        assertThat(count("auth_account")).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("다른 키로 암호화되어 복호화하지 못하는 개인정보도 탈퇴 시 DB에서 삭제한다")
+    void withdrawalDeletesUnreadablePersonalInfo() throws Exception {
+        // given
+        register("kakao", "unreadable", PHONE_A);
+        var id = member();
+        var otherKey = new byte[32];
+        Arrays.fill(otherKey, (byte) 42);
+        var otherCipher = new AesGcmPiiCipher(Map.of("999", otherKey), "999");
+        jdbc.sql("UPDATE auth_account SET name_enc = :name, phone_enc = :phone WHERE member_id = :id")
+                .param("id", id.value())
+                .param("name", otherCipher.encrypt("테스트", "auth_account.name_enc:" + id.value()))
+                .param("phone", otherCipher.encrypt(PHONE_A, "auth_account.phone_enc:" + id.value()))
+                .update();
+        jdbc.sql("UPDATE auth_social_identity SET email_enc = :email, email_verified = TRUE WHERE member_id = :id")
+                .param("id", id.value())
+                .param(
+                        "email",
+                        otherCipher.encrypt(
+                                "unreadable@example.com", "auth_social_identity.email_enc:KAKAO:unreadable"))
+                .update();
+        assertThat(jdbc.sql("SELECT name_enc IS NOT NULL AND phone_enc IS NOT NULL FROM auth_account")
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        assertThat(jdbc.sql("SELECT email_enc IS NOT NULL FROM auth_social_identity")
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        var unreadable = load(id);
+        assertThat(unreadable.name()).isNull();
+        assertThat(unreadable.phoneNumber()).isNull();
+        assertThat(unreadable.socialIdentities().getFirst().email()).isNull();
+        // when
+        assertThat(withdrawals.withdraw(id, reauth("unreadable"))).isInstanceOf(WithdrawalOutcome.Withdrawn.class);
+        // then
+        assertThat(jdbc.sql("SELECT name_enc IS NULL AND phone_enc IS NULL FROM auth_account WHERE member_id = :id")
+                        .param("id", id.value())
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        assertThat(count("auth_social_identity")).isZero();
+        assertThat(load(id).status()).isEqualTo(AccountStatus.WITHDRAWN);
+        assertThat(events.withdrawn).hasSize(1);
     }
 
     @Test
