@@ -5,14 +5,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.mogu.auth.domain.AccountStatus;
 import com.mogu.auth.domain.AuthAccount;
 import com.mogu.auth.domain.AuthProvider;
+import com.mogu.auth.domain.DiHash;
 import com.mogu.auth.domain.LinkedSocialIdentity;
 import com.mogu.auth.domain.SocialIdentity;
+import com.mogu.auth.support.MutableAuthClock;
 import com.mogu.common.auth.MemberId;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class AuthAccountMapperTest {
     private final AuthAccountMapper mapper = new AuthAccountMapper(com.mogu.auth.support.PiiTestKeys.cipher());
@@ -23,7 +29,7 @@ class AuthAccountMapperTest {
     @DisplayName("계정 엔티티의 모든 필드와 연결 목록을 도메인으로 복원한다")
     void toDomainMapsEveryField() {
         // given
-        for (var status : AccountStatus.values()) {
+        for (var status : new AccountStatus[] {AccountStatus.ACTIVE, AccountStatus.SANCTIONED}) {
             var until = status == AccountStatus.ACTIVE ? null : now.plusSeconds(100);
             var entity = new AuthAccountJpaEntity(
                     id,
@@ -50,7 +56,7 @@ class AuthAccountMapperTest {
     @DisplayName("계정 도메인의 모든 필드와 연결 목록을 엔티티로 변환한다")
     void toJpaEntityMapsEveryField() {
         // given
-        for (var status : AccountStatus.values()) {
+        for (var status : new AccountStatus[] {AccountStatus.ACTIVE, AccountStatus.SANCTIONED}) {
             var until = status == AccountStatus.ACTIVE ? null : now.plusSeconds(100);
             var account = AuthAccount.reconstitute(
                     new MemberId(id),
@@ -163,5 +169,90 @@ class AuthAccountMapperTest {
                         .filter(line -> line.contains("PII decryption failed"))
                         .count())
                 .isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("탈퇴 시각과 nullable DI는 양방향 변환에서 보존한다")
+    void withdrawnRoundTrip() {
+        // given
+        var original = AuthAccount.register(
+                        new MemberId(id),
+                        new com.mogu.auth.domain.DiHash("a".repeat(64)),
+                        new SocialIdentity(AuthProvider.KAKAO, "withdrawn"),
+                        now)
+                .withdraw(now);
+        for (var account : List.of(original, original.clearDiHash())) {
+            // when
+            var restored = mapper.toDomain(mapper.toJpaEntity(account));
+            // then
+            assertThat(restored.isWithdrawn()).isTrue();
+            assertThat(restored.withdrawnAt()).isEqualTo(now);
+            assertThat(restored.diHash()).isEqualTo(account.diHash());
+            assertThat(restored.name()).isNull();
+            assertThat(restored.phoneNumber()).isNull();
+            assertThat(restored.socialIdentities()).isEmpty();
+        }
+    }
+
+    static Stream<String> withdrawnDiHashes() {
+        return Stream.of("a".repeat(64), null);
+    }
+
+    @ParameterizedTest
+    @MethodSource("withdrawnDiHashes")
+    @DisplayName("탈퇴 도메인을 엔티티로 변환할 때 시각과 DI 유무를 각각 직접 검증한다")
+    void toJpaEntityMapsWithdrawnFieldsIndependently(String hash) {
+        // given
+        var clock = new MutableAuthClock();
+        var createdAt = clock.instant();
+        clock.advance(Duration.ofDays(1));
+        var withdrawnAt = clock.instant();
+        var account = AuthAccount.reconstitute(
+                new MemberId(id),
+                hash == null ? null : new DiHash(hash),
+                AccountStatus.WITHDRAWN,
+                null,
+                createdAt,
+                List.of(),
+                null,
+                null,
+                withdrawnAt);
+        // when
+        var entity = mapper.toJpaEntity(account);
+        // then
+        assertThat(entity.getMemberId()).isEqualTo(id);
+        assertThat(entity.getStatus()).isEqualTo(AccountStatus.WITHDRAWN);
+        assertThat(entity.getCreatedAt()).isEqualTo(createdAt);
+        assertThat(entity.getWithdrawnAt()).isEqualTo(withdrawnAt);
+        assertThat(entity.getDiHash()).isEqualTo(hash);
+        assertThat(entity.getSanctionedUntil()).isNull();
+        assertThat(entity.getNameEnc()).isNull();
+        assertThat(entity.getPhoneEnc()).isNull();
+        assertThat(entity.getSocialIdentities()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @MethodSource("withdrawnDiHashes")
+    @DisplayName("탈퇴 엔티티를 도메인으로 변환할 때 시각과 DI 유무를 각각 직접 검증한다")
+    void toDomainMapsWithdrawnFieldsIndependently(String hash) {
+        // given
+        var clock = new MutableAuthClock();
+        var createdAt = clock.instant();
+        clock.advance(Duration.ofDays(1));
+        var withdrawnAt = clock.instant();
+        var entity = new AuthAccountJpaEntity(
+                id, hash, AccountStatus.WITHDRAWN, null, createdAt, List.of(), null, null, withdrawnAt);
+        // when
+        var account = mapper.toDomain(entity);
+        // then
+        assertThat(account.memberId()).isEqualTo(new MemberId(id));
+        assertThat(account.status()).isEqualTo(AccountStatus.WITHDRAWN);
+        assertThat(account.createdAt()).isEqualTo(createdAt);
+        assertThat(account.withdrawnAt()).isEqualTo(withdrawnAt);
+        assertThat(account.diHash()).isEqualTo(hash == null ? null : new DiHash(hash));
+        assertThat(account.sanctionedUntil()).isNull();
+        assertThat(account.name()).isNull();
+        assertThat(account.phoneNumber()).isNull();
+        assertThat(account.socialIdentities()).isEmpty();
     }
 }

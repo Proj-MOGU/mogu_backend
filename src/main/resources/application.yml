@@ -53,6 +53,9 @@ mogu:
         logout-requests:
           limit: 4
           window: 1s
+        withdrawal-requests:
+          limit: 5
+          window: 1m
         identity-requests:
           limit: 4
           window: 1s

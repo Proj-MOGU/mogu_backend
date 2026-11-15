@@ -3,6 +3,11 @@ package com.mogu.auth.domain;
 import java.util.Objects;
 
 public record SocialIdentity(AuthProvider provider, String subject) {
+    @Override
+    public String toString() {
+        return "SocialIdentity[provider=" + provider + ", subject=***]";
+    }
+
     public SocialIdentity {
         Objects.requireNonNull(provider, "provider is required");
         if (subject == null || subject.isBlank() || subject.length() > 255)

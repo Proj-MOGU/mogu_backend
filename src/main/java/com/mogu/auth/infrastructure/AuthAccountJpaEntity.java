@@ -20,7 +20,7 @@ public class AuthAccountJpaEntity {
     @Column(name = "member_id", nullable = false)
     private UUID memberId;
 
-    @Column(name = "di_hash", nullable = false, unique = true, length = 64)
+    @Column(name = "di_hash", nullable = true, unique = true, length = 64)
     private String diHash;
 
     public String getDiHash() {
@@ -82,6 +82,27 @@ public class AuthAccountJpaEntity {
         this(memberId, diHash, status, sanctionedUntil, createdAt, identities);
         this.nameEnc = nameEnc;
         this.phoneEnc = phoneEnc;
+    }
+
+    @Column(name = "withdrawn_at")
+    private Instant withdrawnAt;
+
+    public Instant getWithdrawnAt() {
+        return withdrawnAt;
+    }
+
+    AuthAccountJpaEntity(
+            UUID memberId,
+            String diHash,
+            AccountStatus status,
+            Instant sanctionedUntil,
+            Instant createdAt,
+            List<AuthSocialIdentityJpaEntity> identities,
+            String nameEnc,
+            String phoneEnc,
+            Instant withdrawnAt) {
+        this(memberId, diHash, status, sanctionedUntil, createdAt, identities, nameEnc, phoneEnc);
+        this.withdrawnAt = withdrawnAt;
     }
 
     protected AuthAccountJpaEntity() {}

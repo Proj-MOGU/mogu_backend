@@ -40,7 +40,9 @@ public class RefreshService {
         if (tokens.markUsedIfActive(hash, now)) {
             var token = tokens.findByTokenHash(hash).orElseThrow();
             var account = accounts.findByMemberId(token.memberId());
-            if (account.isEmpty() || account.get().isSanctionedAt(now)) {
+            if (account.isEmpty()
+                    || account.get().isWithdrawn()
+                    || account.get().isSanctionedAt(now)) {
                 tokens.revokeFamily(token.familyId(), now);
                 return new RefreshOutcome.Invalid();
             }

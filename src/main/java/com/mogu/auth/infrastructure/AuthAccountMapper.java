@@ -22,7 +22,7 @@ public class AuthAccountMapper {
         var id = entity.getMemberId();
         return AuthAccount.reconstitute(
                 new MemberId(id),
-                new DiHash(entity.getDiHash()),
+                entity.getDiHash() == null ? null : new DiHash(entity.getDiHash()),
                 entity.getStatus(),
                 entity.getSanctionedUntil(),
                 entity.getCreatedAt(),
@@ -41,14 +41,15 @@ public class AuthAccountMapper {
                         })
                         .toList(),
                 decrypt(entity.getNameEnc(), "auth_account.name_enc:" + id, "name_enc", id),
-                decrypt(entity.getPhoneEnc(), "auth_account.phone_enc:" + id, "phone_enc", id));
+                decrypt(entity.getPhoneEnc(), "auth_account.phone_enc:" + id, "phone_enc", id),
+                entity.getWithdrawnAt());
     }
 
     public AuthAccountJpaEntity toJpaEntity(AuthAccount account) {
         var id = account.memberId().value();
         return new AuthAccountJpaEntity(
                 id,
-                account.diHash().value(),
+                account.diHash() == null ? null : account.diHash().value(),
                 account.status(),
                 account.sanctionedUntil(),
                 account.createdAt(),
@@ -66,7 +67,8 @@ public class AuthAccountMapper {
                                 i.emailVerified()))
                         .toList(),
                 encrypt(account.name(), "auth_account.name_enc:" + id),
-                encrypt(account.phoneNumber(), "auth_account.phone_enc:" + id));
+                encrypt(account.phoneNumber(), "auth_account.phone_enc:" + id),
+                account.withdrawnAt());
     }
 
     private String encrypt(String value, String context) {

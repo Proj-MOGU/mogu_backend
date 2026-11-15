@@ -9,6 +9,8 @@ import static org.mockito.Mockito.when;
 import com.mogu.auth.domain.AccountStatus;
 import com.mogu.auth.domain.AuthProvider;
 import com.mogu.auth.support.PiiTestKeys;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -25,6 +27,7 @@ class AuthAccountRepositoryPiiTest {
         var accounts = mock(JpaAuthAccountRepository.class);
         var identities = mock(JpaAuthSocialIdentityRepository.class);
         var mapper = new AuthAccountMapper(PiiTestKeys.cipher());
+        var em = mock(EntityManager.class);
         var id = UUID.randomUUID();
         var now = Instant.now();
         var linked = new AuthSocialIdentityJpaEntity(AuthProvider.KAKAO, "subject", id, now, "v99.lost.email", true);
@@ -37,10 +40,11 @@ class AuthAccountRepositoryPiiTest {
                 List.of(linked),
                 "v99.lost.name",
                 "v99.lost.phone");
-        when(accounts.findById(id)).thenReturn(Optional.of(entity));
+        when(em.find(AuthAccountJpaEntity.class, id, LockModeType.PESSIMISTIC_WRITE))
+                .thenReturn(entity);
         when(identities.findById(any())).thenReturn(Optional.of(linked));
         // when
-        new AuthAccountRepositoryAdapter(accounts, identities, mapper)
+        new AuthAccountRepositoryAdapter(accounts, identities, mapper, em)
                 .save(mapper.toDomain(entity).sanction(null));
         // then
         var saved = ArgumentCaptor.forClass(AuthAccountJpaEntity.class);

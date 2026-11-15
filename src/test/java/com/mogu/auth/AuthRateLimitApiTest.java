@@ -89,11 +89,18 @@ class AuthRateLimitApiTest extends IdentityIntegrationSupport {
                     .filteredOn(BearerTokenAuthenticationFilter.class::isInstance)
                     .hasSize(1);
         }
+        assertThat(registrationFilters)
+                .noneMatch(com.mogu.auth.infrastructure.WithdrawalRateLimitFilter.class::isInstance);
+        assertThat(generalFilters)
+                .filteredOn(com.mogu.auth.infrastructure.WithdrawalRateLimitFilter.class::isInstance)
+                .hasSize(1);
         var registrationTypes =
                 registrationFilters.stream().map(Object::getClass).toList();
         var generalTypes = generalFilters.stream().map(Object::getClass).toList();
         assertThat(registrationTypes.indexOf(AuthRateLimitFilter.class))
                 .isGreaterThan(registrationTypes.indexOf(BearerTokenAuthenticationFilter.class));
+        assertThat(generalTypes.indexOf(com.mogu.auth.infrastructure.WithdrawalRateLimitFilter.class))
+                .isGreaterThan(generalTypes.indexOf(BearerTokenAuthenticationFilter.class));
         assertThat(generalTypes.indexOf(AuthRateLimitFilter.class))
                 .isLessThan(generalTypes.indexOf(BearerTokenAuthenticationFilter.class));
     }

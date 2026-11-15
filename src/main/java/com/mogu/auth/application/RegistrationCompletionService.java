@@ -12,6 +12,7 @@ import com.mogu.common.error.BusinessException;
 import com.mogu.common.event.MemberRegistered;
 import java.time.Clock;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class RegistrationCompletionService {
     private final AccessTokenIssuer accessTokens;
     private final RefreshTokenIssuer refreshTokens;
     private final Clock clock;
+    private final WithdrawalPolicy withdrawal;
 
     public RegistrationCompletionService(
             RegistrationLock registrationLock,
@@ -38,7 +40,8 @@ public class RegistrationCompletionService {
             ApplicationEventPublisher publisher,
             AccessTokenIssuer accessTokens,
             RefreshTokenIssuer refreshTokens,
-            @Qualifier("authClock") Clock clock) {
+            @Qualifier("authClock") Clock clock,
+            WithdrawalPolicy withdrawal) {
         this.registrationLock = registrationLock;
         this.used = used;
         this.accounts = accounts;
@@ -48,6 +51,7 @@ public class RegistrationCompletionService {
         this.accessTokens = accessTokens;
         this.refreshTokens = refreshTokens;
         this.clock = clock;
+        this.withdrawal = withdrawal;
     }
 
     @Transactional
@@ -60,13 +64,20 @@ public class RegistrationCompletionService {
             String email,
             boolean emailVerified) {
         registrationLock.lock(diHash, social);
-        var now = clock.instant().truncatedTo(ChronoUnit.MICROS);
-        if (!used.markUsed(verificationId, now))
+        var usedAt = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        if (!used.markUsed(verificationId, usedAt))
             throw new BusinessException(AuthErrorCode.INVALID_IDENTITY_VERIFICATION);
         if (accounts.findBySocialIdentity(social).isPresent()) throw new BusinessException(AuthErrorCode.UNAUTHORIZED);
+        var existing = accounts.findByDiHash(diHash).flatMap(a -> accounts.findByMemberIdForUpdate(a.memberId()));
+        var now = clock.instant().truncatedTo(ChronoUnit.MICROS);
         if (sanctions.isSanctioned(diHash, now)) return new RegistrationOutcome.Sanctioned();
-        var existing = accounts.findByDiHash(diHash);
         if (existing.isPresent() && existing.get().isSanctionedAt(now)) return new RegistrationOutcome.Sanctioned();
+        if (existing.isPresent() && existing.get().isWithdrawn()) {
+            if (existing.get().isRejoinRestrictedAt(now, withdrawal.rejoinRestriction()))
+                return new RegistrationOutcome.RejoinRestricted();
+            accounts.save(existing.get().clearDiHash());
+            existing = Optional.empty();
+        }
         boolean newMember = existing.isEmpty();
         var account = existing.map(a -> a.link(social, now))
                 .orElseGet(() -> AuthAccount.register(memberIds.generate(), diHash, social, now));

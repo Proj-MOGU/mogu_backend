@@ -18,6 +18,8 @@ public class AccountInfoService {
 
     @Transactional(readOnly = true)
     public AuthAccount getAccount(MemberId memberId) {
-        return accounts.findByMemberId(memberId).orElseThrow(() -> new BusinessException(AuthErrorCode.UNAUTHORIZED));
+        return accounts.findByMemberId(memberId)
+                .filter(a -> !a.isWithdrawn())
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.UNAUTHORIZED));
     }
 }
