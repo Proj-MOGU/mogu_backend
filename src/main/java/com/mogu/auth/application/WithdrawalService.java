@@ -1,55 +1,35 @@
 package com.mogu.auth.application;
 
-import com.mogu.auth.domain.AuthAccountRepository;
 import com.mogu.auth.domain.AuthErrorCode;
-import com.mogu.auth.domain.RefreshTokenRepository;
-import com.mogu.auth.domain.SocialIdentity;
+import com.mogu.auth.domain.AuthProvider;
 import com.mogu.common.auth.MemberId;
 import com.mogu.common.error.BusinessException;
-import com.mogu.common.event.MemberWithdrawn;
-import java.time.Clock;
-import java.time.temporal.ChronoUnit;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class WithdrawalService {
-    private final AuthAccountRepository accounts;
-    private final RefreshTokenRepository refreshTokens;
+    private final WithdrawalAccountQuery accounts;
     private final SocialTokenVerificationService verification;
-    private final ApplicationEventPublisher publisher;
-    private final Clock clock;
+    private final WithdrawalCompletionService completion;
 
     public WithdrawalService(
-            AuthAccountRepository accounts,
-            RefreshTokenRepository refreshTokens,
+            WithdrawalAccountQuery accounts,
             SocialTokenVerificationService verification,
-            ApplicationEventPublisher publisher,
-            @Qualifier("authClock") Clock clock) {
+            WithdrawalCompletionService completion) {
         this.accounts = accounts;
-        this.refreshTokens = refreshTokens;
         this.verification = verification;
-        this.publisher = publisher;
-        this.clock = clock;
+        this.completion = completion;
     }
 
-    @Transactional
-    public WithdrawalOutcome withdraw(MemberId memberId, VerifiedSocialIdentity reauth) {
-        var account = accounts.findByMemberIdForUpdate(memberId)
-                .orElseThrow(() -> new BusinessException(AuthErrorCode.UNAUTHORIZED));
-        if (account.isWithdrawn()) return new WithdrawalOutcome.AlreadyWithdrawn();
-        if (account.isSanctionedAt(clock.instant())) throw new BusinessException(AuthErrorCode.ACCOUNT_SANCTIONED);
-        if (reauth == null
-                || account.socialIdentities().stream()
-                        .noneMatch(i -> i.identity().equals(new SocialIdentity(reauth.provider(), reauth.subject()))))
-            throw new BusinessException(AuthErrorCode.REAUTHENTICATION_FAILED);
-        verification.consumeNonce(reauth);
-        var now = clock.instant().truncatedTo(ChronoUnit.MICROS);
-        accounts.save(account.withdraw(now));
-        refreshTokens.revokeAllActiveByMember(memberId, now);
-        publisher.publishEvent(new MemberWithdrawn(memberId, now));
-        return new WithdrawalOutcome.Withdrawn();
+    public void withdraw(MemberId memberId, AuthProvider provider, String idToken) {
+        if (accounts.isWithdrawn(memberId)) return;
+        try {
+            var verified = verification.verifyToken(provider, idToken);
+            completion.withdraw(memberId, verified);
+        } catch (BusinessException exception) {
+            if (exception.errorCode() == AuthErrorCode.INVALID_SOCIAL_TOKEN)
+                throw new BusinessException(AuthErrorCode.REAUTHENTICATION_FAILED);
+            throw exception;
+        }
     }
 }

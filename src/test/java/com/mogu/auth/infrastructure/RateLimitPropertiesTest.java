@@ -26,13 +26,15 @@ class RateLimitPropertiesTest {
                 .isEqualTo(Duration.ofMinutes(15));
         assertThat(production.rule(RateLimitRule.REFRESH_REQUESTS).window()).isEqualTo(Duration.ofSeconds(1));
         assertThat(production.rule(RateLimitRule.IDENTITY_FAILURES).limit()).isEqualTo(10);
+        assertThat(production.rule(RateLimitRule.WITHDRAWAL_REQUESTS).limit()).isEqualTo(5);
+        assertThat(production.rule(RateLimitRule.WITHDRAWAL_REQUESTS).window()).isEqualTo(Duration.ofMinutes(1));
         for (var rule : RateLimitRule.values())
-            assertThat(test.rule(rule).limit()).isEqualTo(1_000_000);
+            assertThat(test.rule(rule).limit()).isEqualTo(rule == RateLimitRule.WITHDRAWAL_REQUESTS ? 5 : 1_000_000);
     }
 
     private RateLimitProperties bind(String path) {
         var yaml = new YamlPropertiesFactoryBean();
-        yaml.setResources(new FileSystemResource(path));
+        yaml.setResources(new FileSystemResource("src/main/resources/application.yml"), new FileSystemResource(path));
         return new Binder(new MapConfigurationPropertySource(yaml.getObject()))
                 .bind("mogu.auth.rate-limit", Bindable.of(RateLimitProperties.class))
                 .get();

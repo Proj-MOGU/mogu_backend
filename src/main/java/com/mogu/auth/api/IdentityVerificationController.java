@@ -42,7 +42,7 @@ public class IdentityVerificationController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(
             responseCode = "403",
-            description = "이용이 제한된 계정 (AUTH_ACCOUNT_SANCTIONED)",
+            description = "이용이 제한된 계정 (AUTH_ACCOUNT_SANCTIONED); 탈퇴 후 재가입 제한 기간 (AUTH_REJOIN_RESTRICTED)",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(
             responseCode = "409",

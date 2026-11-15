@@ -92,8 +92,11 @@ public class SecurityConfig {
             @Qualifier("jwtDecoder") JwtDecoder decoder,
             Environment environment)
             throws Exception {
-        limiter.ifAvailable(rateLimiter -> http.addFilterBefore(
-                new AuthRateLimitFilter(rateLimiter, mapper), BearerTokenAuthenticationFilter.class));
+        limiter.ifAvailable(rateLimiter -> {
+            http.addFilterBefore(new AuthRateLimitFilter(rateLimiter, mapper), BearerTokenAuthenticationFilter.class);
+            http.addFilterAfter(
+                    new WithdrawalRateLimitFilter(rateLimiter, mapper), BearerTokenAuthenticationFilter.class);
+        });
         return common(http, entryPoint)
                 .authorizeHttpRequests(a -> {
                     if (environment.acceptsProfiles(Profiles.of("local", "dev"))) {

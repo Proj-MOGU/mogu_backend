@@ -440,6 +440,31 @@
           "nickname"
         ],
         "type" : "object"
+      },
+      "WithdrawalRequest" : {
+        "properties" : {
+          "idToken" : {
+            "description" : "새 nonce로 재인증한 소셜 제공자의 ID Token",
+            "example" : "eyJ...",
+            "maxLength" : 8192,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "provider" : {
+            "description" : "소셜 로그인 제공자",
+            "enum" : [
+              "kakao",
+              "google"
+            ],
+            "example" : "kakao",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "idToken",
+          "provider"
+        ],
+        "type" : "object"
       }
     },
     "securitySchemes" : {
@@ -517,7 +542,7 @@
                 }
               }
             },
-            "description" : "이용이 제한된 계정 (AUTH_ACCOUNT_SANCTIONED)"
+            "description" : "이용이 제한된 계정 (AUTH_ACCOUNT_SANCTIONED); 탈퇴 후 재가입 제한 기간 (AUTH_REJOIN_RESTRICTED)"
           },
           "409" : {
             "content" : {
@@ -929,6 +954,90 @@
         },
         "security" : [ ],
         "summary" : "로그인 토큰 갱신",
+        "tags" : [
+          "인증"
+        ]
+      }
+    },
+    "/api/auth/withdrawal" : {
+      "post" : {
+        "description" : "앱은 POST /api/auth/nonce로 받은 nonce로 소셜 로그인을 다시 해 ID Token을 보낸다. 같은 회원에 연결된 소셜 계정이어야 한다. 이미 탈퇴했으면 204.",
+        "operationId" : "withdraw",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WithdrawalRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "탈퇴 처리 완료 또는 이미 탈퇴한 회원"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "지원하지 않는 로그인 방식 (AUTH_UNSUPPORTED_PROVIDER); 입력값 오류 (COMMON_INVALID_INPUT)"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "인증이 필요하거나 Access Token이 유효하지 않음 (AUTH_UNAUTHORIZED)"
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "소셜 재인증 실패 (AUTH_REAUTHENTICATION_FAILED); 이용이 제한된 계정 (AUTH_ACCOUNT_SANCTIONED)"
+          },
+          "429" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "요청이 너무 많음 (AUTH_TOO_MANY_REQUESTS)",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "재시도까지 대기할 초 (정수, 올림)",
+                "schema" : {
+                  "type" : "integer"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "소셜 로그인 서비스 일시 장애 (AUTH_PROVIDER_UNAVAILABLE)"
+          }
+        },
+        "summary" : "회원 탈퇴",
         "tags" : [
           "인증"
         ]

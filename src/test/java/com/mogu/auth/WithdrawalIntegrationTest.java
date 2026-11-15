@@ -42,7 +42,7 @@ class WithdrawalIntegrationTest extends IdentityIntegrationSupport {
         return new MutableAuthClock();
     }
 
-    private final WithdrawalService withdrawals;
+    private final WithdrawalCompletionService withdrawals;
     private final SocialTokenVerificationService verification;
     private final AuthAccountRepository accounts;
     private final WithdrawnDiHashCleanup cleanup;
@@ -57,7 +57,7 @@ class WithdrawalIntegrationTest extends IdentityIntegrationSupport {
             NonceService nonces,
             @Qualifier("authClock") Clock clock,
             JsonMapper json,
-            WithdrawalService withdrawals,
+            WithdrawalCompletionService withdrawals,
             SocialTokenVerificationService verification,
             AuthAccountRepository accounts,
             WithdrawnDiHashCleanup cleanup,

@@ -72,8 +72,8 @@ public final class AuthRateLimitFilter extends OncePerRequestFilter {
                 failure = AuthErrorCode.INVALID_SOCIAL_TOKEN;
             }
         }
-        if (failures != null && reject(response, failures, key, limiter.blockedFor(failures, key))) return;
-        if (reject(response, requests, key, limiter.tryConsume(requests, key))) return;
+        if (failures != null && reject(mapper, response, failures, key, limiter.blockedFor(failures, key))) return;
+        if (reject(mapper, response, requests, key, limiter.tryConsume(requests, key))) return;
         chain.doFilter(request, response);
         if (failure != null
                 && response.getStatus() == failure.status().value()
@@ -84,7 +84,7 @@ public final class AuthRateLimitFilter extends OncePerRequestFilter {
         }
     }
 
-    private boolean reject(HttpServletResponse response, RateLimitRule rule, String key, long seconds)
+    static boolean reject(JsonMapper mapper, HttpServletResponse response, RateLimitRule rule, String key, long seconds)
             throws IOException {
         if (seconds <= 0) return false;
         log.warn("Auth rate limit exceeded rule={} key={}", rule.ruleName(), key);

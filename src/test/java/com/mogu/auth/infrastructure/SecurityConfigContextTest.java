@@ -50,6 +50,7 @@ class SecurityConfigContextTest {
             assertThat(context.getBeansOfType(SecurityFilterChain.class)).hasSize(2);
             for (var chain : context.getBeansOfType(SecurityFilterChain.class).values()) {
                 assertThat(chain.getFilters()).noneMatch(AuthRateLimitFilter.class::isInstance);
+                assertThat(chain.getFilters()).noneMatch(WithdrawalRateLimitFilter.class::isInstance);
             }
         });
     }
@@ -64,6 +65,19 @@ class SecurityConfigContextTest {
         contextRunner.run(context -> {
             assertThat(context).hasNotFailed();
             assertThat(context.getBeansOfType(SecurityFilterChain.class)).hasSize(2);
+            var general = context.getBean("securityFilterChain", SecurityFilterChain.class)
+                    .getFilters();
+            var types = general.stream().map(Object::getClass).toList();
+            assertThat(types.indexOf(WithdrawalRateLimitFilter.class))
+                    .isGreaterThan(types.indexOf(
+                            org.springframework.security.oauth2.server.resource.web.authentication
+                                    .BearerTokenAuthenticationFilter.class));
+            assertThat(general)
+                    .filteredOn(WithdrawalRateLimitFilter.class::isInstance)
+                    .hasSize(1);
+            assertThat(context.getBean("registrationSecurityFilterChain", SecurityFilterChain.class)
+                            .getFilters())
+                    .noneMatch(WithdrawalRateLimitFilter.class::isInstance);
             for (var chain : context.getBeansOfType(SecurityFilterChain.class).values()) {
                 assertThat(chain.getFilters())
                         .filteredOn(AuthRateLimitFilter.class::isInstance)
