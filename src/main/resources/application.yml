@@ -28,6 +28,8 @@ logging:
     level: "%5p [%X{traceId:-}]"
 
 mogu:
+  member:
+    nickname-hold-period: P30D
   auth:
     rate-limit:
       query-timeout: 200ms

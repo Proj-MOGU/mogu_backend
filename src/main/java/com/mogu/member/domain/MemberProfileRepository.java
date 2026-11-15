@@ -9,7 +9,11 @@ public interface MemberProfileRepository {
 
     Optional<MemberProfile> findByIdForUpdate(MemberId memberId);
 
-    boolean existsByNicknameKeyAndMemberIdNot(String nicknameKey, MemberId memberId);
+    boolean isNicknameUnavailable(Nickname nickname, MemberId memberId, Instant now);
+
+    void holdNickname(Nickname nickname, Instant releasedAt);
+
+    void delete(MemberId memberId);
 
     void update(MemberProfile profile);
 

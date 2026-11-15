@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.mogu.common.auth.MemberId;
 import com.mogu.common.error.BusinessException;
 import com.mogu.member.application.MemberProfileService;
+import com.mogu.member.application.MemberProperties;
 import com.mogu.member.application.UpdateMyProfileCommand;
 import com.mogu.member.domain.Bio;
 import com.mogu.member.domain.MemberErrorCode;
@@ -192,7 +193,8 @@ class MemberProfileRepositoryAdapterTest {
         MemberId id = createProfile();
         updateDirectly(id, nickname());
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
-        MemberProfileService service = new MemberProfileService(adapter, Clock.fixed(now, ZoneOffset.UTC));
+        MemberProfileService service =
+                new MemberProfileService(adapter, Clock.fixed(now, ZoneOffset.UTC), new MemberProperties(null));
         CountDownLatch ready = new CountDownLatch(2);
         String first = nickname();
         String second = nickname();
@@ -226,8 +228,7 @@ class MemberProfileRepositoryAdapterTest {
     private String claimNickname(MemberId id, String nickname, CountDownLatch ready) {
         return outcome(() -> transactions.executeWithoutResult(status -> {
             MemberProfile profile = adapter.findByIdForUpdate(id).orElseThrow();
-            assertThat(adapter.existsByNicknameKeyAndMemberIdNot(
-                            Nickname.of(nickname).key(), id))
+            assertThat(adapter.isNicknameUnavailable(Nickname.of(nickname), id, Instant.now()))
                     .isFalse();
             profile.updateProfile(
                     Nickname.of(nickname), Bio.of(null), Instant.now().truncatedTo(ChronoUnit.MICROS));

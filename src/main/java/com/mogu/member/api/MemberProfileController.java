@@ -70,7 +70,8 @@ public class MemberProfileController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(
             responseCode = "409",
-            description = "닉네임 중복 또는 변경 주기 위반 (MEMBER_DUPLICATE_NICKNAME, MEMBER_NICKNAME_CHANGE_TOO_SOON)",
+            description = "닉네임 중복 또는 변경 주기 위반 (MEMBER_DUPLICATE_NICKNAME, MEMBER_NICKNAME_CHANGE_TOO_SOON). "
+                    + "탈퇴한 회원의 닉네임은 30일 동안 쓸 수 없습니다 (MEMBER_DUPLICATE_NICKNAME).",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     public MyProfileResponse updateMyProfile(
             @LoginMember MemberId memberId, @Valid @RequestBody UpdateMyProfileRequest request) {

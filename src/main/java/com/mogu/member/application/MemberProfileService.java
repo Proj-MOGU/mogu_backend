@@ -9,6 +9,7 @@ import com.mogu.member.domain.MemberProfileRepository;
 import com.mogu.member.domain.Nickname;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,10 +18,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class MemberProfileService {
     private final MemberProfileRepository repository;
     private final Clock clock;
+    private final MemberProperties properties;
 
-    public MemberProfileService(MemberProfileRepository repository, @Qualifier("memberClock") Clock clock) {
+    public MemberProfileService(
+            MemberProfileRepository repository, @Qualifier("memberClock") Clock clock, MemberProperties properties) {
         this.repository = repository;
         this.clock = clock;
+        this.properties = properties;
     }
 
     @Transactional(readOnly = true)
@@ -40,7 +44,7 @@ public class MemberProfileService {
         Nickname nickname = Nickname.of(command.nickname());
         Bio bio = Bio.of(command.bio());
         Instant now = clock.instant();
-        if (repository.existsByNicknameKeyAndMemberIdNot(nickname.key(), command.memberId()))
+        if (repository.isNicknameUnavailable(nickname, command.memberId(), now))
             throw new BusinessException(MemberErrorCode.DUPLICATE_NICKNAME);
         profile.updateProfile(nickname, bio, now);
         repository.update(profile);
@@ -64,5 +68,17 @@ public class MemberProfileService {
         }
         MemberProfile profile = MemberProfile.create(command.memberId(), command.registeredAt());
         repository.save(profile, clock.instant());
+    }
+
+    @Transactional
+    public void withdraw(MemberId memberId, Instant withdrawnAt) {
+        repository.findByIdForUpdate(memberId).ifPresent(profile -> {
+            if (profile.isCompleted()) {
+                Instant releasedAt =
+                        withdrawnAt.plus(properties.nicknameHoldPeriod()).truncatedTo(ChronoUnit.MICROS);
+                repository.holdNickname(profile.nickname(), releasedAt);
+            }
+            repository.delete(memberId);
+        });
     }
 }
