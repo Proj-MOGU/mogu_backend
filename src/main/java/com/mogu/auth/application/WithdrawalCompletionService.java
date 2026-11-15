@@ -37,6 +37,7 @@ public class WithdrawalCompletionService {
 
     @Transactional
     public WithdrawalOutcome withdraw(MemberId memberId, VerifiedSocialIdentity reauth) {
+        verification.consumeNonce(reauth);
         var account = accounts.findByMemberIdForUpdate(memberId)
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.UNAUTHORIZED));
         if (account.isWithdrawn()) return new WithdrawalOutcome.AlreadyWithdrawn();
@@ -45,7 +46,6 @@ public class WithdrawalCompletionService {
                 || account.socialIdentities().stream()
                         .noneMatch(i -> i.identity().equals(new SocialIdentity(reauth.provider(), reauth.subject()))))
             throw new BusinessException(AuthErrorCode.REAUTHENTICATION_FAILED);
-        verification.consumeNonce(reauth);
         var now = clock.instant().truncatedTo(ChronoUnit.MICROS);
         accounts.save(account.withdraw(now));
         refreshTokens.revokeAllActiveByMember(memberId, now);

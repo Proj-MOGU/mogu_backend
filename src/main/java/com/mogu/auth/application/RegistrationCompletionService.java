@@ -64,12 +64,13 @@ public class RegistrationCompletionService {
             String email,
             boolean emailVerified) {
         registrationLock.lock(diHash, social);
-        var now = clock.instant().truncatedTo(ChronoUnit.MICROS);
-        if (!used.markUsed(verificationId, now))
+        var usedAt = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        if (!used.markUsed(verificationId, usedAt))
             throw new BusinessException(AuthErrorCode.INVALID_IDENTITY_VERIFICATION);
         if (accounts.findBySocialIdentity(social).isPresent()) throw new BusinessException(AuthErrorCode.UNAUTHORIZED);
+        var existing = accounts.findByDiHash(diHash).flatMap(a -> accounts.findByMemberIdForUpdate(a.memberId()));
+        var now = clock.instant().truncatedTo(ChronoUnit.MICROS);
         if (sanctions.isSanctioned(diHash, now)) return new RegistrationOutcome.Sanctioned();
-        var existing = accounts.findByDiHash(diHash);
         if (existing.isPresent() && existing.get().isSanctionedAt(now)) return new RegistrationOutcome.Sanctioned();
         if (existing.isPresent() && existing.get().isWithdrawn()) {
             if (existing.get().isRejoinRestrictedAt(now, withdrawal.rejoinRestriction()))

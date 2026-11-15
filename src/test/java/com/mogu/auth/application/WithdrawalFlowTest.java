@@ -78,6 +78,7 @@ class WithdrawalFlowTest {
         var used = mock(UsedIdentityVerificationRepository.class);
         when(used.markUsed(anyString(), any())).thenReturn(true);
         when(accounts.findByDiHash(di)).thenReturn(Optional.of(withdrawn));
+        when(accounts.findByMemberIdForUpdate(id)).thenReturn(Optional.of(withdrawn));
         var generator = mock(MemberIdGenerator.class);
         var newId = new MemberId(UUID.randomUUID());
         when(generator.generate()).thenReturn(newId);
@@ -129,10 +130,47 @@ class WithdrawalFlowTest {
         // when / then
         assertThat(service.complete("verification", di, social, null, null, null, false))
                 .isInstanceOf(RegistrationOutcome.Sanctioned.class);
-        verify(accounts, never()).findByDiHash(any());
+        verify(accounts).findByDiHash(di);
+        verify(accounts, never()).findByMemberIdForUpdate(any());
         verify(accounts, never()).save(any());
         verifyNoInteractions(publisher);
         new WithdrawnDiHashCleanup(accounts, new WithdrawalPolicy(Duration.ofDays(7)), clock).cleanup();
         verify(accounts).clearExpiredWithdrawnDiHashes(clock.instant().minus(Duration.ofDays(7)));
+    }
+
+    @Test
+    @DisplayName("재가입은 기존 계정을 잠금 재조회한 뒤 제재 DI를 확인하여 제재 응답을 반환한다")
+    void checksSanctionsAfterLockingExistingAccount() {
+        // given
+        var used = mock(UsedIdentityVerificationRepository.class);
+        when(used.markUsed(anyString(), any())).thenReturn(true);
+        when(accounts.findByDiHash(di)).thenReturn(Optional.of(withdrawn));
+        when(accounts.findByMemberIdForUpdate(id)).thenAnswer(call -> {
+            // 잠금 대기 중 제재 이벤트가 커밋된 상황을 모사한다.
+            when(sanctions.isSanctioned(di, clock.instant())).thenReturn(true);
+            return Optional.of(withdrawn);
+        });
+        var service = new RegistrationCompletionService(
+                mock(RegistrationLock.class),
+                used,
+                accounts,
+                sanctions,
+                mock(MemberIdGenerator.class),
+                publisher,
+                mock(AccessTokenIssuer.class),
+                mock(RefreshTokenIssuer.class),
+                clock,
+                new WithdrawalPolicy(Duration.ofDays(30)));
+        clock.advance(Duration.ofDays(31));
+        // when
+        var outcome = service.complete("verification", di, social, null, null, null, false);
+        // then
+        assertThat(outcome).isInstanceOf(RegistrationOutcome.Sanctioned.class);
+        var order = inOrder(accounts, sanctions);
+        order.verify(accounts).findByDiHash(di);
+        order.verify(accounts).findByMemberIdForUpdate(id);
+        order.verify(sanctions).isSanctioned(di, clock.instant());
+        verify(accounts, never()).save(any());
+        verifyNoInteractions(publisher);
     }
 }

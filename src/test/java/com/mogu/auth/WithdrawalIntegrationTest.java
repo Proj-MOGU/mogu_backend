@@ -126,7 +126,7 @@ class WithdrawalIntegrationTest extends IdentityIntegrationSupport {
                                 "Bearer " + response.get("accessToken").asText()))
                 .andExpect(status().isUnauthorized());
         events.withdrawn.clear();
-        assertThat(withdrawals.withdraw(id, null)).isInstanceOf(WithdrawalOutcome.AlreadyWithdrawn.class);
+        assertThat(withdrawals.withdraw(id, reauth("withdraw"))).isInstanceOf(WithdrawalOutcome.AlreadyWithdrawn.class);
         assertThat(events.withdrawn).isEmpty();
         pending("kakao", "withdraw");
     }
@@ -184,6 +184,82 @@ class WithdrawalIntegrationTest extends IdentityIntegrationSupport {
                 .isTrue();
         assertThat(count("auth_social_identity")).isZero();
         assertThat(events.withdrawn).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("로그인 이메일 갱신은 같은 트랜잭션의 오래된 ACTIVE 엔티티로 탈퇴를 덮어쓰지 못한다")
+    void staleManagedLoginCannotRestoreWithdrawnAccount() throws Exception {
+        assertManagedStaleSaveRejected(true);
+    }
+
+    @Test
+    @DisplayName("가입 소셜 연결은 같은 트랜잭션의 오래된 ACTIVE 엔티티로 탈퇴를 덮어쓰지 못한다")
+    void staleManagedRegistrationCannotRestoreWithdrawnAccount() throws Exception {
+        assertManagedStaleSaveRejected(false);
+    }
+
+    private void assertManagedStaleSaveRejected(boolean login) throws Exception {
+        // given
+        register("kakao", "managed-stale", PHONE_A);
+        var id = member();
+        var di = load(id).diHash();
+        var social = new SocialIdentity(AuthProvider.KAKAO, "managed-stale");
+        var reauth = reauth("managed-stale");
+        var loaded = new CountDownLatch(1);
+        var committed = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var staleSave = executor.submit(() -> transactions.executeWithoutResult(status -> {
+                var original =
+                        (login ? accounts.findBySocialIdentity(social) : accounts.findByDiHash(di)).orElseThrow();
+                assertThat(original.status()).isEqualTo(AccountStatus.ACTIVE);
+                assertThat(original.name()).isNotNull();
+                assertThat(original.phoneNumber()).isNotNull();
+                assertThat(original.socialIdentities()).hasSize(1);
+                var stale = login
+                        ? original.updateSocialEmail(social, "updated@example.com", true)
+                        : original.link(new SocialIdentity(AuthProvider.GOOGLE, "new-link"), clock.instant());
+                loaded.countDown();
+                await(committed);
+                // when / then: 읽었던 영속성 컨텍스트를 유지한 채 탈퇴 커밋 뒤 저장한다.
+                assertThatThrownBy(() -> accounts.save(stale))
+                        .isInstanceOfSatisfying(
+                                BusinessException.class,
+                                e -> assertThat(e.errorCode()).isEqualTo(AuthErrorCode.UNAUTHORIZED));
+                var locked = accounts.findByMemberIdForUpdate(id).orElseThrow();
+                assertThat(locked.isWithdrawn()).isTrue();
+                assertThat(locked.name()).isNull();
+                assertThat(locked.phoneNumber()).isNull();
+                assertThat(locked.socialIdentities()).isEmpty();
+            }));
+            var withdrawal = executor.submit(() -> {
+                await(loaded);
+                try {
+                    return withdrawals.withdraw(id, reauth);
+                } finally {
+                    // 프록시 호출이 반환된 시점에는 별도 트랜잭션의 커밋이 끝났다.
+                    committed.countDown();
+                }
+            });
+            assertThat(withdrawal.get(20, TimeUnit.SECONDS)).isInstanceOf(WithdrawalOutcome.Withdrawn.class);
+            staleSave.get(20, TimeUnit.SECONDS);
+        }
+        assertThat(load(id).status()).isEqualTo(AccountStatus.WITHDRAWN);
+        assertThat(jdbc.sql("SELECT name_enc IS NULL AND phone_enc IS NULL FROM auth_account WHERE member_id = :id")
+                        .param("id", id.value())
+                        .query(Boolean.class)
+                        .single())
+                .isTrue();
+        assertThat(count("auth_social_identity")).isZero();
+        assertThat(events.withdrawn).hasSize(1);
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Concurrency test timeout");
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Concurrency test interrupted", exception);
+        }
     }
 
     @Test

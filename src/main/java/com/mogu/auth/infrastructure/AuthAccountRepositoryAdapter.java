@@ -8,9 +8,12 @@ import com.mogu.auth.domain.DiHash;
 import com.mogu.auth.domain.SocialIdentity;
 import com.mogu.common.auth.MemberId;
 import com.mogu.common.error.BusinessException;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -18,12 +21,17 @@ public class AuthAccountRepositoryAdapter implements AuthAccountRepository {
     private final JpaAuthAccountRepository accounts;
     private final JpaAuthSocialIdentityRepository identities;
     private final AuthAccountMapper mapper;
+    private final EntityManager em;
 
     public AuthAccountRepositoryAdapter(
-            JpaAuthAccountRepository accounts, JpaAuthSocialIdentityRepository identities, AuthAccountMapper mapper) {
+            JpaAuthAccountRepository accounts,
+            JpaAuthSocialIdentityRepository identities,
+            AuthAccountMapper mapper,
+            EntityManager em) {
         this.accounts = accounts;
         this.identities = identities;
         this.mapper = mapper;
+        this.em = em;
     }
 
     @Override
@@ -46,7 +54,7 @@ public class AuthAccountRepositoryAdapter implements AuthAccountRepository {
 
     @Override
     public Optional<AuthAccount> findByMemberIdForUpdate(MemberId memberId) {
-        return accounts.findByMemberIdForUpdate(memberId.value()).map(mapper::toDomain);
+        return findLockedAccount(memberId.value()).map(mapper::toDomain);
     }
 
     @Override
@@ -54,12 +62,22 @@ public class AuthAccountRepositoryAdapter implements AuthAccountRepository {
         return accounts.clearExpiredWithdrawnDiHashes(withdrawnBefore);
     }
 
-    /** 기존 행을 잠근 뒤 탈퇴 계정을 비탈퇴 상태로 덮어쓰는 저장은 거절한다. */
+    private Optional<AuthAccountJpaEntity> findLockedAccount(UUID memberId) {
+        var entity = em.find(AuthAccountJpaEntity.class, memberId, LockModeType.PESSIMISTIC_WRITE);
+        if (entity == null) return Optional.empty();
+        // find는 이미 관리 중인 엔티티를 반환할 수 있으므로 잠금 후 DB 상태를 다시 읽는다.
+        em.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+        // 부모 refresh로 연결 목록을 갱신하고 남아 있는 연결의 속성도 다시 읽는다.
+        entity.getSocialIdentities().forEach(em::refresh);
+        return Optional.of(entity);
+    }
+
+    /** 기존 행을 잠금·재조회한 뒤 탈퇴 계정을 비탈퇴 상태로 덮어쓰는 저장은 거절한다. */
     @Override
     public void save(AuthAccount account) {
         var entity = mapper.toJpaEntity(account);
         // 조회에서 생략된 복호화 실패 값은 다른 상태 저장 때문에 삭제하지 않는다.
-        var previous = accounts.findByMemberIdForUpdate(entity.getMemberId());
+        var previous = findLockedAccount(entity.getMemberId());
         if (previous.isPresent() && previous.get().getStatus() == AccountStatus.WITHDRAWN && !account.isWithdrawn())
             throw new BusinessException(AuthErrorCode.UNAUTHORIZED);
         String nameEnc = account.isWithdrawn()

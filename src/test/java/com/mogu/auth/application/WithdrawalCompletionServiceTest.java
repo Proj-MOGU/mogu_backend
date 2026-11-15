@@ -39,8 +39,8 @@ class WithdrawalCompletionServiceTest {
         assertThat(service.withdraw(id, reauth)).isInstanceOf(WithdrawalOutcome.Withdrawn.class);
         // then
         var order = inOrder(accounts, verification, tokens, publisher);
-        order.verify(accounts).findByMemberIdForUpdate(id);
         order.verify(verification).consumeNonce(reauth);
+        order.verify(accounts).findByMemberIdForUpdate(id);
         order.verify(accounts)
                 .save(argThat(a -> a.isWithdrawn() && a.withdrawnAt().equals(now)));
         order.verify(tokens).revokeAllActiveByMember(id, now);
@@ -48,18 +48,21 @@ class WithdrawalCompletionServiceTest {
     }
 
     @Test
-    @DisplayName("이미 탈퇴했으면 재인증과 이벤트 없이 성공한다")
+    @DisplayName("이미 탈퇴했어도 nonce를 먼저 소모하고 이벤트 없이 성공한다")
     void idempotent() {
         // given
         when(accounts.findByMemberIdForUpdate(id)).thenReturn(Optional.of(account.withdraw(clock.instant())));
         // when / then
-        assertThat(service.withdraw(id, null)).isInstanceOf(WithdrawalOutcome.AlreadyWithdrawn.class);
-        verifyNoInteractions(verification, tokens, publisher);
+        assertThat(service.withdraw(id, reauth)).isInstanceOf(WithdrawalOutcome.AlreadyWithdrawn.class);
+        var order = inOrder(verification, accounts);
+        order.verify(verification).consumeNonce(reauth);
+        order.verify(accounts).findByMemberIdForUpdate(id);
+        verifyNoInteractions(tokens, publisher);
         verify(accounts, never()).save(any());
     }
 
     @Test
-    @DisplayName("다른 회원의 소셜 연결은 변경과 nonce 소모 없이 거절한다")
+    @DisplayName("다른 회원의 소셜 연결은 nonce 소모 뒤에 저장 없이 거절한다")
     void rejectsOtherIdentity() {
         // given
         when(accounts.findByMemberIdForUpdate(id)).thenReturn(Optional.of(account));
@@ -68,35 +71,33 @@ class WithdrawalCompletionServiceTest {
                 .isInstanceOfSatisfying(
                         BusinessException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(AuthErrorCode.REAUTHENTICATION_FAILED));
-        verifyNoInteractions(verification, tokens, publisher);
+        verifyNoInteractions(tokens, publisher);
         verify(accounts, never()).save(any());
     }
 
     @Test
-    @DisplayName("계정 부재와 제재는 재인증보다 먼저 거절한다")
+    @DisplayName("nonce 소모 후 계정 부재와 제재를 거절한다")
     void rejectsMissingAndSanctioned() {
         // given / when / then
-        assertThatThrownBy(() -> service.withdraw(id, null))
+        assertThatThrownBy(() -> service.withdraw(id, reauth))
                 .isInstanceOfSatisfying(
                         BusinessException.class, e -> assertThat(e.errorCode()).isEqualTo(AuthErrorCode.UNAUTHORIZED));
         when(accounts.findByMemberIdForUpdate(id)).thenReturn(Optional.of(account.sanction(null)));
-        assertThatThrownBy(() -> service.withdraw(id, null))
+        assertThatThrownBy(() -> service.withdraw(id, reauth))
                 .isInstanceOfSatisfying(
                         BusinessException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(AuthErrorCode.ACCOUNT_SANCTIONED));
-        verifyNoInteractions(verification, tokens, publisher);
+        verifyNoInteractions(tokens, publisher);
     }
 
     @Test
     @DisplayName("nonce 소모 실패 예외는 그대로 전달하고 저장하지 않는다")
     void propagatesNonceFailure() {
         // given
-        when(accounts.findByMemberIdForUpdate(id)).thenReturn(Optional.of(account));
         var failure = new BusinessException(AuthErrorCode.INVALID_SOCIAL_TOKEN);
         doThrow(failure).when(verification).consumeNonce(reauth);
         // when / then
         assertThatThrownBy(() -> service.withdraw(id, reauth)).isSameAs(failure);
-        verify(accounts, never()).save(any());
-        verifyNoInteractions(tokens, publisher);
+        verifyNoInteractions(accounts, tokens, publisher);
     }
 }
