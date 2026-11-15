@@ -23,7 +23,7 @@ class AuthAccountMapperTest {
     @DisplayName("계정 엔티티의 모든 필드와 연결 목록을 도메인으로 복원한다")
     void toDomainMapsEveryField() {
         // given
-        for (var status : AccountStatus.values()) {
+        for (var status : new AccountStatus[] {AccountStatus.ACTIVE, AccountStatus.SANCTIONED}) {
             var until = status == AccountStatus.ACTIVE ? null : now.plusSeconds(100);
             var entity = new AuthAccountJpaEntity(
                     id,
@@ -50,7 +50,7 @@ class AuthAccountMapperTest {
     @DisplayName("계정 도메인의 모든 필드와 연결 목록을 엔티티로 변환한다")
     void toJpaEntityMapsEveryField() {
         // given
-        for (var status : AccountStatus.values()) {
+        for (var status : new AccountStatus[] {AccountStatus.ACTIVE, AccountStatus.SANCTIONED}) {
             var until = status == AccountStatus.ACTIVE ? null : now.plusSeconds(100);
             var account = AuthAccount.reconstitute(
                     new MemberId(id),
@@ -163,5 +163,28 @@ class AuthAccountMapperTest {
                         .filter(line -> line.contains("PII decryption failed"))
                         .count())
                 .isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("탈퇴 시각과 nullable DI는 양방향 변환에서 보존한다")
+    void withdrawnRoundTrip() {
+        // given
+        var original = AuthAccount.register(
+                        new MemberId(id),
+                        new com.mogu.auth.domain.DiHash("a".repeat(64)),
+                        new SocialIdentity(AuthProvider.KAKAO, "withdrawn"),
+                        now)
+                .withdraw(now);
+        for (var account : List.of(original, original.clearDiHash())) {
+            // when
+            var restored = mapper.toDomain(mapper.toJpaEntity(account));
+            // then
+            assertThat(restored.isWithdrawn()).isTrue();
+            assertThat(restored.withdrawnAt()).isEqualTo(now);
+            assertThat(restored.diHash()).isEqualTo(account.diHash());
+            assertThat(restored.name()).isNull();
+            assertThat(restored.phoneNumber()).isNull();
+            assertThat(restored.socialIdentities()).isEmpty();
+        }
     }
 }

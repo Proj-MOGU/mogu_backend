@@ -1,10 +1,15 @@
 package com.mogu.auth.infrastructure;
 
+import com.mogu.auth.domain.AccountStatus;
 import com.mogu.auth.domain.AuthAccount;
 import com.mogu.auth.domain.AuthAccountRepository;
+import com.mogu.auth.domain.AuthErrorCode;
 import com.mogu.auth.domain.DiHash;
 import com.mogu.auth.domain.SocialIdentity;
 import com.mogu.common.auth.MemberId;
+import com.mogu.common.error.BusinessException;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
 
@@ -40,25 +45,47 @@ public class AuthAccountRepositoryAdapter implements AuthAccountRepository {
     }
 
     @Override
+    public Optional<AuthAccount> findByMemberIdForUpdate(MemberId memberId) {
+        return accounts.findByMemberIdForUpdate(memberId.value()).map(mapper::toDomain);
+    }
+
+    @Override
+    public int clearExpiredWithdrawnDiHashes(Instant withdrawnBefore) {
+        return accounts.clearExpiredWithdrawnDiHashes(withdrawnBefore);
+    }
+
+    /** 기존 행을 잠근 뒤 탈퇴 계정을 비탈퇴 상태로 덮어쓰는 저장은 거절한다. */
+    @Override
     public void save(AuthAccount account) {
         var entity = mapper.toJpaEntity(account);
         // 조회에서 생략된 복호화 실패 값은 다른 상태 저장 때문에 삭제하지 않는다.
-        var previous = accounts.findById(entity.getMemberId());
-        String nameEnc = entity.getNameEnc() != null
-                ? entity.getNameEnc()
-                : previous.map(AuthAccountJpaEntity::getNameEnc).orElse(null);
-        String phoneEnc = entity.getPhoneEnc() != null
-                ? entity.getPhoneEnc()
-                : previous.map(AuthAccountJpaEntity::getPhoneEnc).orElse(null);
+        var previous = accounts.findByMemberIdForUpdate(entity.getMemberId());
+        if (previous.isPresent() && previous.get().getStatus() == AccountStatus.WITHDRAWN && !account.isWithdrawn())
+            throw new BusinessException(AuthErrorCode.UNAUTHORIZED);
+        String nameEnc = account.isWithdrawn()
+                ? null
+                : entity.getNameEnc() != null
+                        ? entity.getNameEnc()
+                        : previous.map(AuthAccountJpaEntity::getNameEnc).orElse(null);
+        String phoneEnc = account.isWithdrawn()
+                ? null
+                : entity.getPhoneEnc() != null
+                        ? entity.getPhoneEnc()
+                        : previous.map(AuthAccountJpaEntity::getPhoneEnc).orElse(null);
         accounts.saveAndFlush(new AuthAccountJpaEntity(
                 entity.getMemberId(),
                 entity.getDiHash(),
                 entity.getStatus(),
                 entity.getSanctionedUntil(),
                 entity.getCreatedAt(),
-                java.util.List.of(),
+                List.of(),
                 nameEnc,
-                phoneEnc));
+                phoneEnc,
+                entity.getWithdrawnAt()));
+        if (account.socialIdentities().isEmpty()) {
+            identities.deleteByMemberId(entity.getMemberId());
+            return;
+        }
         var linked = entity.getSocialIdentities().stream()
                 .map(i -> {
                     if (i.getEmailEnc() != null) return i;

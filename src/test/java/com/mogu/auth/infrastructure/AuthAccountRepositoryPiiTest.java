@@ -37,7 +37,7 @@ class AuthAccountRepositoryPiiTest {
                 List.of(linked),
                 "v99.lost.name",
                 "v99.lost.phone");
-        when(accounts.findById(id)).thenReturn(Optional.of(entity));
+        when(accounts.findByMemberIdForUpdate(id)).thenReturn(Optional.of(entity));
         when(identities.findById(any())).thenReturn(Optional.of(linked));
         // when
         new AuthAccountRepositoryAdapter(accounts, identities, mapper)

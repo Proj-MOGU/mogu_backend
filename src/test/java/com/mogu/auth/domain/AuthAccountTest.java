@@ -114,4 +114,90 @@ class AuthAccountTest {
         assertThat(lifted.diHash()).isEqualTo(original.diHash());
         assertThat(lifted.memberId()).isEqualTo(original.memberId());
     }
+
+    @Test
+    @DisplayName("탈퇴는 개인정보와 소셜 연결을 삭제하고 DI와 마이크로초 시각을 보존한다")
+    void withdrawalClearsPersonalData() {
+        // given
+        var clock = new com.mogu.auth.support.MutableAuthClock();
+        var social = new SocialIdentity(AuthProvider.KAKAO, "withdraw");
+        var original = AuthAccount.register(new MemberId(UUID.randomUUID()), new DiHash("a".repeat(64)), social, now)
+                .updatePersonalInfo("테스트", "01012345678")
+                .updateSocialEmail(social, "test@example.com", true);
+        // when
+        var withdrawn = original.withdraw(clock.instant());
+        // then
+        assertThat(withdrawn.isWithdrawn()).isTrue();
+        assertThat(withdrawn.withdrawnAt()).isEqualTo(clock.instant());
+        assertThat(withdrawn.name()).isNull();
+        assertThat(withdrawn.phoneNumber()).isNull();
+        assertThat(withdrawn.socialIdentities()).isEmpty();
+        assertThat(withdrawn.diHash()).isEqualTo(original.diHash());
+        assertThat(withdrawn.clearDiHash().diHash()).isNull();
+        assertThat(original.isWithdrawn()).isFalse();
+    }
+
+    @Test
+    @DisplayName("탈퇴한 계정은 모든 변경과 재탈퇴를 거부한다")
+    void withdrawnRejectsChanges() {
+        // given
+        var withdrawn = account(AccountStatus.ACTIVE, null).withdraw(now);
+        var social = new SocialIdentity(AuthProvider.KAKAO, "withdraw");
+        // when / then
+        for (Runnable change : List.<Runnable>of(
+                () -> withdrawn.link(social, now),
+                () -> withdrawn.sanction(null),
+                () -> withdrawn.lift(),
+                () -> withdrawn.updatePersonalInfo(null, null),
+                () -> withdrawn.updateSocialEmail(social, null, false),
+                () -> withdrawn.withdraw(now)))
+            assertThatThrownBy(change::run).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> account(AccountStatus.ACTIVE, null).clearDiHash())
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("제재 중 탈퇴는 거절하고 제재 만료 정각부터 허용한다")
+    void withdrawalRespectsSanctions() {
+        // given / when / then
+        for (Instant until : new Instant[] {null, now.plusSeconds(1)})
+            assertThatThrownBy(() -> account(AccountStatus.SANCTIONED, until).withdraw(now))
+                    .isInstanceOfSatisfying(
+                            com.mogu.common.error.BusinessException.class,
+                            e -> assertThat(e.errorCode()).isEqualTo(AuthErrorCode.ACCOUNT_SANCTIONED));
+        assertThat(account(AccountStatus.SANCTIONED, now).withdraw(now).isWithdrawn())
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("탈퇴 시각과 DI의 생성자 불변식을 검사한다")
+    void withdrawalInvariants() {
+        // given
+        var id = new MemberId(UUID.randomUUID());
+        // when / then
+        assertThatThrownBy(() -> AuthAccount.reconstitute(
+                        id, new DiHash("a".repeat(64)), AccountStatus.ACTIVE, null, now, List.of(), null, null, now))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> AuthAccount.reconstitute(id, null, AccountStatus.ACTIVE, null, now, List.of()))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> AuthAccount.reconstitute(id, null, AccountStatus.WITHDRAWN, null, now, List.of()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("재가입 제한은 정확히 30일 정각에 끝난다")
+    void rejoinBoundary() {
+        // given
+        var restriction = java.time.Duration.ofDays(30);
+        var withdrawn = account(AccountStatus.ACTIVE, null).withdraw(now);
+        // when / then
+        assertThat(withdrawn.isRejoinRestrictedAt(now.plus(restriction).minusNanos(1000), restriction))
+                .isTrue();
+        assertThat(withdrawn.isRejoinRestrictedAt(now.plus(restriction), restriction))
+                .isFalse();
+        assertThat(withdrawn.isRejoinRestrictedAt(now.plus(restriction).plusNanos(1000), restriction))
+                .isFalse();
+        assertThat(account(AccountStatus.ACTIVE, null).isRejoinRestrictedAt(now, restriction))
+                .isFalse();
+    }
 }

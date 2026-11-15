@@ -7,6 +7,8 @@ public enum AuthErrorCode implements ErrorCode {
     TOO_MANY_REQUESTS("AUTH_TOO_MANY_REQUESTS", HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."),
     INVALID_IDENTITY_VERIFICATION("AUTH_INVALID_IDENTITY_VERIFICATION", HttpStatus.BAD_REQUEST, "본인인증 정보를 확인할 수 없습니다."),
     PROVIDER_ALREADY_LINKED("AUTH_PROVIDER_ALREADY_LINKED", HttpStatus.CONFLICT, "이미 같은 로그인 방식의 다른 계정이 연결되어 있습니다."),
+    REAUTHENTICATION_FAILED("AUTH_REAUTHENTICATION_FAILED", HttpStatus.FORBIDDEN, "본인 확인에 실패했습니다. 다시 로그인해 주세요."),
+    REJOIN_RESTRICTED("AUTH_REJOIN_RESTRICTED", HttpStatus.FORBIDDEN, "탈퇴 후 30일 동안은 다시 가입할 수 없습니다."),
     ACCOUNT_SANCTIONED("AUTH_ACCOUNT_SANCTIONED", HttpStatus.FORBIDDEN, "이용이 제한된 계정입니다."),
     INVALID_REFRESH_TOKEN("AUTH_INVALID_REFRESH_TOKEN", HttpStatus.UNAUTHORIZED, "다시 로그인해 주세요."),
     UNAUTHORIZED("AUTH_UNAUTHORIZED", HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),

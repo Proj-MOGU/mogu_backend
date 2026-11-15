@@ -4,5 +4,7 @@ public sealed interface RegistrationOutcome {
     record Completed(IssuedAccessToken accessToken, IssuedRefreshToken refreshToken, boolean newMember)
             implements RegistrationOutcome {}
 
+    record RejoinRestricted() implements RegistrationOutcome {}
+
     record Sanctioned() implements RegistrationOutcome {}
 }

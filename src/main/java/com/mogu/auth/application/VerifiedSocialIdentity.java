@@ -10,6 +10,6 @@ public record VerifiedSocialIdentity(
 
     @Override
     public String toString() {
-        return "VerifiedSocialIdentity[provider=" + provider + ", subject=" + subject + ", nonce=***]";
+        return "VerifiedSocialIdentity[provider=" + provider + ", subject=***, nonce=***]";
     }
 }

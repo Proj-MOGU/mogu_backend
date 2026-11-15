@@ -62,6 +62,8 @@ public class IdentityVerificationService {
                 email,
                 emailVerified)) {
             case RegistrationOutcome.Completed result -> result;
+            case RegistrationOutcome.RejoinRestricted ignored ->
+                throw new BusinessException(AuthErrorCode.REJOIN_RESTRICTED);
             case RegistrationOutcome.Sanctioned ignored ->
                 throw new BusinessException(AuthErrorCode.ACCOUNT_SANCTIONED);
         };
